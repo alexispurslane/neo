@@ -1,15 +1,12 @@
 package io.github.alexispurslane.bloc
 
 import android.util.Log
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
 import io.github.alexispurslane.bloc.data.networking.models.LoginRequest
 import io.github.alexispurslane.bloc.data.networking.models.LoginResponse
-import io.github.alexispurslane.bloc.data.networking.models.MFALoginRequest
 import io.github.alexispurslane.bloc.data.networking.models.MFAResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,7 +25,6 @@ data class LoginUiState(
     val mfa: Boolean = false,
     val mfaTicket: String = "",
     val mfaAllowedMethods: List<String> = emptyList(),
-    val disabled: Boolean = false,
     val isLoginError: Boolean = false,
     val loginErrorTitle: String = "",
     val loginErrorBody: String = ""
@@ -66,15 +62,15 @@ class LoginViewModel @Inject constructor(
     fun onMultiFactorLoginConfirm(mfaMethod: String, mfaResponse: String, setLoggedIn: (Boolean) -> Unit) {
         viewModelScope.launch {
             val loginResponse = revoltAccountRepository.login(
-                uiState.value.instanceApiUrl, MFALoginRequest(
-                    mfa_ticket = uiState.value.mfaTicket,
-                    friendly_name = "Bloc",
-                    mfa_respose = when (mfaMethod) {
+                uiState.value.instanceApiUrl, uiState.value.instanceEmailAddress, LoginRequest.MFA(
+                    mfaTicket = uiState.value.mfaTicket,
+                    mfaResponse = when (mfaMethod) {
                         "Password" -> MFAResponse(password = mfaResponse, null, null)
-                        "Recovery" -> MFAResponse(null, null, recovery_code = mfaResponse)
-                        "Totp" -> MFAResponse(null, totp_code = mfaResponse, null)
+                        "Recovery" -> MFAResponse(null, null, recoveryCode = mfaResponse)
+                        "Totp" -> MFAResponse(null, totpCode = mfaResponse, null)
                         else -> return@launch
-                    }
+                    },
+                    friendlyName = "Bloc",
                 )
             )
 
@@ -94,10 +90,10 @@ class LoginViewModel @Inject constructor(
                 val loginResponse = revoltAccountRepository.login(
                     uiState.value.instanceApiUrl,
                     uiState.value.instanceEmailAddress,
-                    LoginRequest(
+                    LoginRequest.Basic(
                         email = uiState.value.instanceEmailAddress,
                         password = uiState.value.instancePassword,
-                        friendly_name = "Bloc"
+                        friendlyName = "Bloc"
                     )
                 )
                 handleLoginResponse(loginResponse, setLoggedIn)
@@ -110,26 +106,24 @@ class LoginViewModel @Inject constructor(
             when (loginResponse) {
                 is Either.Success -> {
                     Log.d("SIGNIN SUCCESS", loginResponse.toString())
-                    when (loginResponse.value.result) {
-                        "Success" -> {
+                    when (loginResponse.value) {
+                        is LoginResponse.Success -> {
                             setLoggedIn(true)
                             prevState
                         }
-                        "MFA" -> {
+                        is LoginResponse.MFA -> {
                             prevState.copy(
                                 mfa = true,
                                 mfaAllowedMethods = loginResponse.value.allowedMethods,
-                                mfaTicket = loginResponse.value.ticket!!
+                                mfaTicket = loginResponse.value.ticket
                             )
                         }
-                        "Disabled" -> {
+                        is LoginResponse.Disabled -> {
                             prevState.copy(
-                                disabled = true
+                                isLoginError = true,
+                                loginErrorTitle = "Account Disabled",
+                                loginErrorBody = "This account has been disabled."
                             )
-                        }
-                        else -> {
-                            Log.d("SIGNIN SUCCESS", "Unknown login response result ${loginResponse.value.result}")
-                            prevState
                         }
                     }
                 }
