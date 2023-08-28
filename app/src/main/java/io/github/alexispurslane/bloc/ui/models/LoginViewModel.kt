@@ -1,13 +1,16 @@
-package io.github.alexispurslane.bloc
+package io.github.alexispurslane.bloc.ui.models
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
-import io.github.alexispurslane.bloc.data.networking.models.LoginRequest
-import io.github.alexispurslane.bloc.data.networking.models.LoginResponse
-import io.github.alexispurslane.bloc.data.networking.models.MFAResponse
+import io.github.alexispurslane.bloc.data.network.RevoltApiModule
+import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
+import io.github.alexispurslane.bloc.data.network.models.LoginRequest
+import io.github.alexispurslane.bloc.data.network.models.LoginResponse
+import io.github.alexispurslane.bloc.data.network.models.MFAResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,7 +30,7 @@ data class LoginUiState(
     val mfaAllowedMethods: List<String> = emptyList(),
     val isLoginError: Boolean = false,
     val loginErrorTitle: String = "",
-    val loginErrorBody: String = ""
+    val loginErrorBody: String = "",
 )
 
 @HiltViewModel
@@ -39,11 +42,11 @@ class LoginViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val dataStoreUserSession = revoltAccountRepository.userSessionFlow.first()
+            val userSession = revoltAccountRepository.userSessionFlow.first()
             _uiState.update { prevState ->
                 prevState.copy(
-                    instanceApiUrl = if (prevState.instanceApiUrl.isEmpty()) dataStoreUserSession.instanceApiUrl ?: "" else prevState.instanceApiUrl,
-                    instanceEmailAddress = if (prevState.instanceEmailAddress.isEmpty()) dataStoreUserSession.emailAddress ?: "" else prevState.instanceEmailAddress,
+                    instanceApiUrl = if (prevState.instanceApiUrl.isEmpty()) userSession.instanceApiUrl ?: "" else prevState.instanceApiUrl,
+                    instanceEmailAddress = if (prevState.instanceEmailAddress.isEmpty()) userSession.emailAddress ?: "" else prevState.instanceEmailAddress,
                 )
             }
         }
@@ -151,6 +154,7 @@ class LoginViewModel @Inject constructor(
         return try {
             val res = revoltAccountRepository.queryNode(instanceApiUrl)
             if (res.isSuccessful && res.body() != null) {
+                RevoltApiModule.setBaseUrl(instanceApiUrl)
                 Pair(true, "That looks like a Revolt v${res.body()!!.revolt} instance!")
             } else {
                 Pair(false, "Uh oh! Got status code: ${res.message()}")

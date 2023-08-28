@@ -1,11 +1,10 @@
-package io.github.alexispurslane.bloc.ui
+package io.github.alexispurslane.bloc.ui.composables.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,7 +27,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,11 +69,8 @@ import io.github.alexispurslane.bloc.R
 import kotlinx.coroutines.launch
 import androidx.compose.ui.autofill.AutofillType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
-import io.github.alexispurslane.bloc.LoginViewModel
+import io.github.alexispurslane.bloc.ui.models.LoginViewModel
 import io.github.alexispurslane.bloc.autofill
 import io.github.alexispurslane.bloc.ui.theme.EngineeringOrange
 
@@ -267,7 +262,7 @@ fun MultiFactorLoginForm(
                 .height(50.dp),
             onClick = { onBack() }
         ) {
-            Text("Bac")
+            Text("Back")
         }
     }
 }

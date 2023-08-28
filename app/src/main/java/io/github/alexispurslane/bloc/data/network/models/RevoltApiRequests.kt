@@ -1,4 +1,4 @@
-package io.github.alexispurslane.bloc.data.networking.models
+package io.github.alexispurslane.bloc.data.network.models
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect
 import com.fasterxml.jackson.annotation.JsonInclude
