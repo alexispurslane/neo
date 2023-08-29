@@ -11,7 +11,9 @@ import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
 import io.github.alexispurslane.bloc.data.RevoltServersRepository
 import io.github.alexispurslane.bloc.data.UserSession
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
+import io.github.alexispurslane.bloc.data.network.RevoltChannelsRepository
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
+import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 import io.github.alexispurslane.bloc.data.network.models.RevoltErrorId
 import io.github.alexispurslane.bloc.data.network.models.RevoltServer
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
@@ -37,12 +39,14 @@ import kotlin.time.Duration.Companion.seconds
 
 data class HomeUiState(
     val userInfo: RevoltUser? = null,
-    val servers: List<RevoltServer> = emptyList()
+    val servers: List<RevoltServer> = emptyList(),
+    val channels: Map<String, RevoltChannel> = emptyMap()
 )
 @HiltViewModel
 class HomeScreenViewModel @Inject constructor(
     private val revoltAccountRepository: RevoltAccountsRepository,
     private val revoltServersRepository: RevoltServersRepository,
+    private val revoltChannelsRepository: RevoltChannelsRepository,
 ): ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -68,15 +72,23 @@ class HomeScreenViewModel @Inject constructor(
                 }
             }
         }
+
+        viewModelScope.launch {
+            revoltChannelsRepository.channels.collectLatest { channels ->
+                _uiState.update { prevState ->
+                    prevState.copy(
+                        channels = channels
+                    )
+                }
+            }
+        }
     }
 
     @OptIn(DelicateCoroutinesApi::class)
     private suspend fun initializeWebSockets(userSession: UserSession) = coroutineScope {
         if (RevoltWebSocketModule.setWebSocketUrlAndToken(userSession.websocketsUrl!!, userSession.sessionToken!!)) {
-            RevoltWebSocketModule.service() // initialize service (it's lazily created)
-            // Subscribe things to the websockets
-            RevoltWebSocketModule.subscribe(revoltAccountRepository::onWebSocketEvent)
-            RevoltWebSocketModule.subscribe(revoltServersRepository::onWebSocketEvent)
+            // Initialize service (it's lazily created)
+            RevoltWebSocketModule.service()
         }
     }
     private suspend fun initializeSession(userSession: UserSession) {

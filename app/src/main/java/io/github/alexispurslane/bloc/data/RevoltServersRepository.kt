@@ -1,14 +1,21 @@
 package io.github.alexispurslane.bloc.data
 
+import android.util.Log
+import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltServer
 import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
+@OptIn(DelicateCoroutinesApi::class)
 @Singleton
 class RevoltServersRepository @Inject constructor(
 ) {
@@ -17,10 +24,19 @@ class RevoltServersRepository @Inject constructor(
     )
     val servers: StateFlow<List<RevoltServer>> = _servers.asStateFlow()
 
-    fun onWebSocketEvent(event: RevoltWebSocketResponse): Boolean {
+    init {
+        GlobalScope.launch(Dispatchers.IO) {
+            RevoltWebSocketModule.eventFlow.collect {
+                onWebSocketEvent(it)
+            }
+        }
+    }
+
+    private fun onWebSocketEvent(event: RevoltWebSocketResponse): Boolean {
         _servers.update { prev ->
             when (event) {
                 is RevoltWebSocketResponse.Ready -> {
+                    Log.d("SERVER REPO", "Recieved servers!")
                     event.servers
                 }
                 is RevoltWebSocketResponse.ServerCreate -> {
@@ -57,6 +73,6 @@ class RevoltServersRepository @Inject constructor(
                 else -> prev
             }
         }
-        return false
+        return true
     }
 }

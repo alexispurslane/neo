@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
+import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.WebSocketSubscriber
 import io.github.alexispurslane.bloc.data.network.models.LoginResponse
 import io.github.alexispurslane.bloc.data.network.models.LoginRequest
@@ -16,12 +17,16 @@ import io.github.alexispurslane.bloc.data.network.models.UserProfile
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
 import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
 import io.github.alexispurslane.bloc.data.network.models.WebPushSubscriptionResponse
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 import retrofit2.Response
 import java.io.IOException
@@ -38,6 +43,7 @@ data class UserSession(
     val displayName: String? = null
 )
 
+@OptIn(DelicateCoroutinesApi::class)
 @Singleton
 class RevoltAccountsRepository @Inject constructor(
     private val settingsLocalDataSource: DataStore<Preferences>,
@@ -64,8 +70,16 @@ class RevoltAccountsRepository @Inject constructor(
     var webPushSubscription: MutableStateFlow<WebPushSubscriptionResponse?> =
         MutableStateFlow(null)
 
-    fun onWebSocketEvent(event: RevoltWebSocketResponse): Boolean {
-        return false
+    init {
+        GlobalScope.launch(Dispatchers.IO) {
+            RevoltWebSocketModule.eventFlow.collect {
+                onWebSocketEvent(it)
+            }
+        }
+    }
+
+    private fun onWebSocketEvent(event: RevoltWebSocketResponse): Boolean {
+        return true
     }
 
     suspend fun queryNode(baseUrl: String): Response<QueryNodeResponse> {

@@ -164,7 +164,7 @@ sealed class RevoltWebSocketResponse constructor() {
     data class ChannelCreate(
         @param:JsonProperty("type") val type: String,
         @JsonUnwrapped
-        val message: RevoltChannel
+        val channel: RevoltChannel
     ) : RevoltWebSocketResponse()
     data class ChannelUpdate(
         @param:JsonProperty("type") val type: String,

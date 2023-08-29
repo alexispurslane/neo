@@ -13,6 +13,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -30,7 +34,8 @@ object RevoltWebSocketModule {
     var websocketUrl: String? = null
         private set
     private var revoltWebSocket: WebSocket? = null
-    private var eventSubscribers: MutableList<WebSocketSubscriber>? = null
+    private var _eventFlow: MutableSharedFlow<RevoltWebSocketResponse> = MutableSharedFlow(replay = 3, extraBufferCapacity = 3)
+    val eventFlow: SharedFlow<RevoltWebSocketResponse> = _eventFlow.asSharedFlow()
     private var keepAliveJob: Job? = null
     private var sessionToken: String? = null
 
@@ -105,20 +110,7 @@ object RevoltWebSocketModule {
                 super.onMessage(webSocket, text)
                 val event = jsonMapper.readValue(text, RevoltWebSocketResponse::class.java)
                 Log.d("WEBSOCKET", "receiving: $event")
-                runBlocking(Dispatchers.IO) {
-                    val subscribeJobs = eventSubscribers!!.map { subscriber ->
-                        async {
-                            if (subscriber(event)) {
-                                subscriber
-                            } else {
-                                null
-                            }
-                        }
-                    }
-                    eventSubscribers = subscribeJobs.awaitAll()
-                        .filterNotNull()
-                        .toMutableList()
-                }
+                _eventFlow.tryEmit(event)
             }
 
             override fun onMessage(
@@ -129,8 +121,6 @@ object RevoltWebSocketModule {
                 onMessage(webSocket, bytes.toString())
             }
         })
-
-        eventSubscribers = mutableListOf()
 
         keepAliveJob?.cancel("WebSocket restarted")
         keepAliveJob = GlobalScope.launch(Dispatchers.IO) {
@@ -150,13 +140,5 @@ object RevoltWebSocketModule {
             createWebSocket()
         }
         return revoltWebSocket
-    }
-
-    fun subscribe(subscriber: WebSocketSubscriber): Boolean {
-        if (eventSubscribers != null) {
-            eventSubscribers!!.add(subscriber)
-            return true
-        }
-        return false
     }
 }
