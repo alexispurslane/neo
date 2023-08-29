@@ -8,11 +8,13 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
+import io.github.alexispurslane.bloc.data.network.WebSocketSubscriber
 import io.github.alexispurslane.bloc.data.network.models.LoginResponse
 import io.github.alexispurslane.bloc.data.network.models.LoginRequest
 import io.github.alexispurslane.bloc.data.network.models.QueryNodeResponse
 import io.github.alexispurslane.bloc.data.network.models.UserProfile
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
+import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
 import io.github.alexispurslane.bloc.data.network.models.WebPushSubscriptionResponse
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +30,7 @@ import javax.inject.Singleton
 
 data class UserSession(
     val instanceApiUrl: String? = null,
+    val websocketsUrl: String? = null,
     val emailAddress: String? = null,
     val sessionId: String? = null,
     val userId: String? = null,
@@ -51,7 +54,8 @@ class RevoltAccountsRepository @Inject constructor(
             sessionId = it[PreferenceKeys.SESSION_ID],
             userId = it[PreferenceKeys.USER_ID],
             sessionToken = it[PreferenceKeys.SESSION_TOKEN],
-            displayName = it[PreferenceKeys.DISPLAY_NAME]
+            displayName = it[PreferenceKeys.DISPLAY_NAME],
+            websocketsUrl = it[PreferenceKeys.WEBSOCKETS_URL]
         )
     }
 
@@ -60,11 +64,15 @@ class RevoltAccountsRepository @Inject constructor(
     var webPushSubscription: MutableStateFlow<WebPushSubscriptionResponse?> =
         MutableStateFlow(null)
 
+    fun onWebSocketEvent(event: RevoltWebSocketResponse): Boolean {
+        return false
+    }
+
     suspend fun queryNode(baseUrl: String): Response<QueryNodeResponse> {
         return RevoltApiModule.service().queryNode(baseUrl)
     }
 
-    suspend fun login(baseUrl: String, emailAddress: String, loginRequest: LoginRequest): Either<LoginResponse, String> {
+    suspend fun login(baseUrl: String, emailAddress: String, ws: String, loginRequest: LoginRequest): Either<LoginResponse, String> {
         return try {
             val res = when (loginRequest) {
                 is LoginRequest.Basic -> RevoltApiModule.service()
@@ -78,6 +86,7 @@ class RevoltAccountsRepository @Inject constructor(
                 saveLoginInfo(
                     baseUrl,
                     emailAddress,
+                    ws,
                     loginResponse
                 )
                 Either.Success(loginResponse)
@@ -95,10 +104,11 @@ class RevoltAccountsRepository @Inject constructor(
         }
     }
 
-    private suspend fun saveLoginInfo(api: String, email: String, loginResponse: LoginResponse) {
+    private suspend fun saveLoginInfo(api: String, email: String, ws: String, loginResponse: LoginResponse) {
         settingsLocalDataSource.edit { preferences ->
             preferences[PreferenceKeys.INSTANCE_API_URL] = api
             preferences[PreferenceKeys.EMAIL] = email
+            preferences[PreferenceKeys.WEBSOCKETS_URL] = ws
             Log.d("DATA STORE", "Saved: $api, $email")
 
             if (loginResponse is LoginResponse.Success) {
@@ -167,6 +177,7 @@ class RevoltAccountsRepository @Inject constructor(
 private object PreferenceKeys {
     val EMAIL = stringPreferencesKey("email")
     val INSTANCE_API_URL = stringPreferencesKey("instance_api_url")
+    val WEBSOCKETS_URL = stringPreferencesKey("websockets_url")
     val SESSION_ID = stringPreferencesKey("session_id")
     val USER_ID = stringPreferencesKey("user_id")
     val SESSION_TOKEN = stringPreferencesKey("session_token")

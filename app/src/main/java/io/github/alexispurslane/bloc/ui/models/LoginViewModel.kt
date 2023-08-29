@@ -65,7 +65,7 @@ class LoginViewModel @Inject constructor(
     fun onMultiFactorLoginConfirm(mfaMethod: String, mfaResponse: String, setLoggedIn: (Boolean) -> Unit) {
         viewModelScope.launch {
             val loginResponse = revoltAccountRepository.login(
-                uiState.value.instanceApiUrl, uiState.value.instanceEmailAddress, LoginRequest.MFA(
+                uiState.value.instanceApiUrl, uiState.value.instanceEmailAddress, RevoltWebSocketModule.websocketUrl!!, LoginRequest.MFA(
                     mfaTicket = uiState.value.mfaTicket,
                     mfaResponse = when (mfaMethod) {
                         "Password" -> MFAResponse(password = mfaResponse, null, null)
@@ -93,6 +93,7 @@ class LoginViewModel @Inject constructor(
                 val loginResponse = revoltAccountRepository.login(
                     uiState.value.instanceApiUrl,
                     uiState.value.instanceEmailAddress,
+                    RevoltWebSocketModule.websocketUrl!!,
                     LoginRequest.Basic(
                         email = uiState.value.instanceEmailAddress,
                         password = uiState.value.instancePassword,
@@ -152,9 +153,9 @@ class LoginViewModel @Inject constructor(
 
     private suspend fun validateUrl(instanceApiUrl: String): Pair<Boolean, String> {
         return try {
+            RevoltApiModule.setBaseUrl(instanceApiUrl)
             val res = revoltAccountRepository.queryNode(instanceApiUrl)
             if (res.isSuccessful && res.body() != null) {
-                RevoltApiModule.setBaseUrl(instanceApiUrl)
                 Pair(true, "That looks like a Revolt v${res.body()!!.revolt} instance!")
             } else {
                 Pair(false, "Uh oh! Got status code: ${res.message()}")

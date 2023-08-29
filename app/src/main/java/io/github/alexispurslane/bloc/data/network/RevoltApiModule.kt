@@ -28,7 +28,7 @@ object RequestInterceptor : Interceptor {
 object RevoltApiModule {
     private var baseUrl: String? = null
     private var revoltApiService: RevoltApiService? = null
-    val okHttpClient by lazy {
+    private val okHttpClient by lazy {
         OkHttpClient().newBuilder().addInterceptor(RequestInterceptor).build()
     }
 

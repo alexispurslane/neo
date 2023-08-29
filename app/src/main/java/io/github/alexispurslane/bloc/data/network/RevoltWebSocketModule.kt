@@ -1,37 +1,162 @@
 package io.github.alexispurslane.bloc.data.network
 
-import com.tinder.scarlet.Scarlet
-import com.tinder.scarlet.Stream
-import com.tinder.scarlet.StreamAdapter
-import com.tinder.scarlet.messageadapter.jackson.JacksonMessageAdapter
-import com.tinder.scarlet.websocket.okhttp.newWebSocketFactory
-import com.tinder.streamadapter.coroutines.CoroutinesStreamAdapterFactory
+import android.util.Log
+import com.fasterxml.jackson.annotation.JsonBackReference
+import com.fasterxml.jackson.databind.json.JsonMapper
+import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketRequest
+import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
+import kotlin.time.Duration.Companion.seconds
+
+typealias WebSocketSubscriber = (RevoltWebSocketResponse) -> Boolean
 
 object RevoltWebSocketModule {
-    private var websocketUrl: String? = null
-    private var revoltWebSocketService: RevoltWebSocketService? = null
+    var websocketUrl: String? = null
+        private set
+    private var revoltWebSocket: WebSocket? = null
+    private var eventSubscribers: MutableList<WebSocketSubscriber>? = null
+    private var keepAliveJob: Job? = null
+    private var sessionToken: String? = null
 
-    fun setWebSocketUrl(newUrl: String): Boolean {
-        if (newUrl != websocketUrl) {
+    private val okHttpClient by lazy {
+        OkHttpClient().newBuilder().build()
+    }
+
+    private val jsonMapper by lazy {
+        JsonMapper()
+    }
+
+    fun setWebSocketUrlAndToken(newUrl: String, token: String): Boolean {
+        if (newUrl != websocketUrl || sessionToken != token || revoltWebSocket == null) {
             websocketUrl = newUrl
-            revoltWebSocketService = null
+            sessionToken = token
+            revoltWebSocket = null
             return true
         }
         return false
     }
 
-    fun service(): RevoltWebSocketService {
-        assert(websocketUrl != null)
-        if (revoltWebSocketService == null) {
-            revoltWebSocketService = Scarlet.Builder()
-                .webSocketFactory(RevoltApiModule.okHttpClient.newWebSocketFactory(
-                    websocketUrl!!))
-                .addMessageAdapterFactory(JacksonMessageAdapter.Factory())
-                .addStreamAdapterFactory(CoroutinesStreamAdapterFactory())
-                .build()
-                .create()
+    fun send(event: RevoltWebSocketRequest): Boolean {
+        Log.d("WEBSOCKET", "sending: ${event.toString()}")
+        return service()!!.send(jsonMapper.writeValueAsString(event))
+    }
+
+    fun authenticate(token: String): Boolean {
+        Log.d("WEBSOCKET", "authenticating websocket")
+        return send(RevoltWebSocketRequest.Authenticate(sessionToken = token))
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun createWebSocket() {
+        revoltWebSocket = okHttpClient.newWebSocket(Request.Builder().url(websocketUrl!!).build(), object : WebSocketListener() {
+            override fun onClosed(
+                webSocket: WebSocket,
+                code: Int,
+                reason: String
+            ) {
+                super.onClosed(webSocket, code, reason)
+
+                Log.d("WEBSOCKET", "WebSocket closed.")
+                revoltWebSocket = null
+            }
+
+            override fun onClosing(
+                webSocket: WebSocket,
+                code: Int,
+                reason: String
+            ) {
+                super.onClosing(webSocket, code, reason)
+                Log.d("WEBSOCKET", "WebSocket closing...")
+            }
+
+            override fun onFailure(
+                webSocket: WebSocket,
+                t: Throwable,
+                response: Response?
+            ) {
+                super.onFailure(webSocket, t, response)
+                Log.e("WEBSOCKET", "WebSocket failed: ${t.message}")
+                revoltWebSocket = null
+            }
+
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                super.onOpen(webSocket, response)
+                Log.d("WEBSOCKET", "WebSocket opened.")
+                authenticate(sessionToken!!)
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                super.onMessage(webSocket, text)
+                val event = jsonMapper.readValue(text, RevoltWebSocketResponse::class.java)
+                Log.d("WEBSOCKET", "receiving: $event")
+                runBlocking(Dispatchers.IO) {
+                    val subscribeJobs = eventSubscribers!!.map { subscriber ->
+                        async {
+                            if (subscriber(event)) {
+                                subscriber
+                            } else {
+                                null
+                            }
+                        }
+                    }
+                    eventSubscribers = subscribeJobs.awaitAll()
+                        .filterNotNull()
+                        .toMutableList()
+                }
+            }
+
+            override fun onMessage(
+                webSocket: WebSocket,
+                bytes: okio.ByteString
+            ) {
+                super.onMessage(webSocket, bytes)
+                onMessage(webSocket, bytes.toString())
+            }
+        })
+
+        eventSubscribers = mutableListOf()
+
+        keepAliveJob?.cancel("WebSocket restarted")
+        keepAliveJob = GlobalScope.launch(Dispatchers.IO) {
+            while (revoltWebSocket != null) {
+                delay(25.seconds)
+                send(RevoltWebSocketRequest.Ping(timestamp = System.currentTimeMillis()))
+            }
         }
 
-        return revoltWebSocketService!!
+        Log.d("WEBSOCKET", "WebSocket (re)created.")
+    }
+
+    fun service(): WebSocket? {
+        if (websocketUrl != null
+            && sessionToken != null
+            && revoltWebSocket == null) {
+            createWebSocket()
+        }
+        return revoltWebSocket
+    }
+
+    fun subscribe(subscriber: WebSocketSubscriber): Boolean {
+        if (eventSubscribers != null) {
+            eventSubscribers!!.add(subscriber)
+            return true
+        }
+        return false
     }
 }

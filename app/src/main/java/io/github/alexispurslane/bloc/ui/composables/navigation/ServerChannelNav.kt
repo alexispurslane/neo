@@ -52,21 +52,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import coil.compose.AsyncImage
 import io.github.alexispurslane.bloc.R
+import io.github.alexispurslane.bloc.data.network.RevoltApiModule
+import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
+import io.github.alexispurslane.bloc.data.network.models.RevoltServer
 
 @Composable
-fun ServerChannelNav(navController: NavHostController) {
+fun ServerChannelNav(navController: NavHostController, servers: List<RevoltServer>) {
     val configuration = LocalConfiguration.current
 
-    val servers = listOf("A", "B", "C")
-    val channels = mapOf(
-        "@dms" to listOf("novatore", "stirner", "nietzsche", "proudhon"),
-        "A" to listOf("general", "memes", "serious"),
-        "B" to listOf("off-topic", "ocaml-discuss", "haskell-discuss", "rust-discuss", "fsharp-discuss"),
-        "C" to listOf("hrt", "diy", "transfem", "transmasc")
-    )
-    var currentServer by remember { mutableStateOf(servers[0]) }
-    var currentChannel by remember { mutableStateOf(channels[currentServer]!![0]) }
+    var currentServer by remember { mutableStateOf(-1) }
     Row(
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.Start
@@ -94,10 +90,10 @@ fun ServerChannelNav(navController: NavHostController) {
                 modifier = Modifier
                     .aspectRatio(1.0F)
                     .fillMaxWidth(),
-                shape = if (currentServer == "@dms") MaterialTheme.shapes.large else CircleShape,
+                shape = if (currentServer == -1) MaterialTheme.shapes.large else CircleShape,
                 contentPadding = PaddingValues(0.dp),
                 onClick = {
-                    currentServer = "@dms"
+                    currentServer = -1
                 }
             ) {
                 Icon(
@@ -105,9 +101,9 @@ fun ServerChannelNav(navController: NavHostController) {
                     contentDescription = null
                 )
             }
-            for (server in servers) {
-                val shape = if (server == currentServer) MaterialTheme.shapes.large else CircleShape
-                val elevation = if (server == currentServer) ButtonDefaults.elevatedButtonElevation() else ButtonDefaults.buttonElevation()
+            servers.forEachIndexed { index, server ->
+                val shape = if (index == currentServer) MaterialTheme.shapes.large else CircleShape
+                val elevation = if (index == currentServer) ButtonDefaults.elevatedButtonElevation() else ButtonDefaults.buttonElevation()
                 Button(
                     modifier = Modifier
                         .aspectRatio(1.0F)
@@ -115,12 +111,14 @@ fun ServerChannelNav(navController: NavHostController) {
                     shape = shape,
                     contentPadding = PaddingValues(0.dp),
                     onClick = {
-                        currentServer = server
-                        currentChannel = channels[currentServer]!![0]
+                        currentServer = index
                     },
                     elevation = elevation
                 ) {
-                    Text(server, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+                    if (server.icon != null)
+                        AsyncImage(model = RevoltApiModule.getResourceUrl(server.icon!!), contentDescription = "Server Icon")
+                    else
+                        Text(server.name.take(2), fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
                 }
             }
         }
@@ -138,9 +136,11 @@ fun ServerChannelNav(navController: NavHostController) {
                     .padding(10.dp),
                 contentAlignment = Alignment.BottomStart
             ) {
-                Text(currentServer, fontSize = 30.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Start)
+                if (servers.getOrNull(currentServer)?.banner != null)
+                    AsyncImage(model = RevoltApiModule.getResourceUrl(servers[currentServer].banner!!), contentDescription = "Server Banner")
+                Text(servers.getOrNull(currentServer)?.name ?: "@dms", fontSize = 30.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Start)
             }
-            for (channel in channels[currentServer]!!) {
+            for (channel in emptyList<RevoltChannel>()) {
                 Row(
                     modifier = Modifier
                         .padding(horizontal = 10.dp)
@@ -148,12 +148,11 @@ fun ServerChannelNav(navController: NavHostController) {
                         .fillMaxWidth()
                         .clip(MaterialTheme.shapes.small)
                         .background(
-                            if (currentChannel == channel) Color(
+                            if (false) Color(
                                 0x55000000
                             ) else Color.Transparent
                         )
                         .clickable {
-                            currentChannel = channel
                         },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -167,8 +166,8 @@ fun ServerChannelNav(navController: NavHostController) {
                             contentDescription = "channel hashtag icon"
                         )
                     }
-                    val textColor = if (currentChannel == channel) Color.LightGray else Color.Gray
-                    Text(channel, fontWeight = FontWeight.Bold, textAlign = TextAlign.Start, fontSize = 20.sp, color = textColor)
+                    val textColor = if (false) Color.LightGray else Color.Gray
+                    Text("unknown-channel", fontWeight = FontWeight.Bold, textAlign = TextAlign.Start, fontSize = 20.sp, color = textColor)
                 }
             }
         }

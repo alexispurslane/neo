@@ -1,5 +1,6 @@
 package io.github.alexispurslane.bloc.data.network.models
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
@@ -36,7 +37,7 @@ sealed class RevoltWebSocketRequest private constructor() {
 
     data class Ping(
         @get:JsonProperty("type") val type: String = "Ping",
-        @get:JsonProperty("data") var timestamp: Int = 0
+        @get:JsonProperty("data") var timestamp: Long = 0
     ) : RevoltWebSocketRequest()
 }
 
@@ -108,7 +109,7 @@ sealed class RevoltWebSocketResponse constructor() {
     ) : RevoltWebSocketResponse()
     data class Pong(
         @param:JsonProperty("type") val type: String,
-        @param:JsonProperty("e") val timestamp: Int = 0
+        @param:JsonProperty("data") val timestamp: Long = 0
     ) : RevoltWebSocketResponse()
     data class Ready(
         @param:JsonProperty("type") val type: String,
@@ -116,6 +117,7 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("servers") val servers: List<RevoltServer>,
         @param:JsonProperty("channels") val channels: List<RevoltChannel>,
         @param:JsonProperty("emojis") val emojis: List<Emoji>,
+        @param:JsonProperty("members") val members: JsonNode
     ) : RevoltWebSocketResponse()
     data class Message(
         @param:JsonProperty("type") val type: String,
@@ -207,7 +209,7 @@ sealed class RevoltWebSocketResponse constructor() {
     ) : RevoltWebSocketResponse()
     data class ServerUpdate(
         @param:JsonProperty("type") val type: String,
-        @param:JsonProperty("id") val channelId: String,
+        @param:JsonProperty("id") val serverId: String,
         @param:JsonProperty("data") val data: RevoltServer,
         @param:JsonProperty("clear") val clear: List<String>,
     ) : RevoltWebSocketResponse()

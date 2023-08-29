@@ -76,7 +76,7 @@ fun HomeScreen(
 
     ScrollableThreeDrawerScaffold(
         left = {
-            ServerChannelNav(navController)
+            ServerChannelNav(navController, uiState.servers)
         },
         middle = {
             NavHost(navController, startDestination = "welcome") {

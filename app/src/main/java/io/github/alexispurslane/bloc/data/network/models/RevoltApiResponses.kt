@@ -176,7 +176,7 @@ data class RevoltServer(
     @param:JsonProperty("categories") var categories: List<ServerCategory>,
     @param:JsonProperty("system_messages") var systemMessagesConfig: SystemMessagesConfig?,
     @param:JsonProperty("roles") var roles: Map<String, Role>?,
-    @param:JsonProperty("default_permissions") var defaultPermissions: Permissions,
+    @param:JsonProperty("default_permissions") var defaultPermissions: Long,
     @param:JsonProperty("icon") var icon: AutumnFile?,
     @param:JsonProperty("banner") var banner: AutumnFile?,
     @param:JsonProperty("flags") var flags: Int?,
@@ -207,8 +207,8 @@ data class Role(
 )
 
 data class Permissions(
-    @param:JsonProperty("a") val allow: Int,
-    @param:JsonProperty("d") val disallow: Int,
+    @param:JsonProperty("a") val allow: Long,
+    @param:JsonProperty("d") val disallow: Long,
 )
 
 @JsonTypeInfo(
@@ -246,7 +246,7 @@ sealed class RevoltChannel private constructor() {
         @param:JsonProperty("recipients") val participantUserIds: List<String>,
         @param:JsonProperty("icon") val icon: AutumnFile?,
         @param:JsonProperty("last_message_id") val lastMessageId: String?,
-        @param:JsonProperty("permissions") val permissions: Int?,
+        @param:JsonProperty("permissions") val permissions: Long?,
         @param:JsonProperty("nsfw") val nsfw: Boolean?,
     ) : RevoltChannel()
     data class TextChannel(
@@ -257,7 +257,7 @@ sealed class RevoltChannel private constructor() {
         @param:JsonProperty("description") val description: String?,
         @param:JsonProperty("icon") val icon: AutumnFile?,
         @param:JsonProperty("last_message_id") val lastMessageId: String?,
-        @param:JsonProperty("default_permissions") val defaultPermissions: Int?,
+        @param:JsonProperty("default_permissions") val defaultPermissions: Long?,
         @param:JsonProperty("role_permissions") val rolePermissions: Map<String, Permissions>?,
         @param:JsonProperty("nsfw") val nsfw: Boolean?,
     ) : RevoltChannel()
@@ -268,7 +268,7 @@ sealed class RevoltChannel private constructor() {
         @param:JsonProperty("name") val name: String,
         @param:JsonProperty("description") val description: String?,
         @param:JsonProperty("icon") val icon: AutumnFile?,
-        @param:JsonProperty("default_permissions") val defaultPermissions: Int?,
+        @param:JsonProperty("default_permissions") val defaultPermissions: Long?,
         @param:JsonProperty("role_permissions") val rolePermissions: Map<String, Permissions>?,
         @param:JsonProperty("nsfw") val nsfw: Boolean?,
     ) : RevoltChannel()
