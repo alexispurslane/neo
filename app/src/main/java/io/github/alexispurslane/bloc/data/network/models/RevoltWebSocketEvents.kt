@@ -1,12 +1,13 @@
 package io.github.alexispurslane.bloc.data.network.models
 
-import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonUnwrapped
 import com.fasterxml.jackson.annotation.JsonValue
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import io.github.alexispurslane.bloc.data.SinglePolyUnwrappedDeserializer
 
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
@@ -119,9 +120,12 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("emojis") val emojis: List<Emoji>,
         @param:JsonProperty("members") val members: JsonNode
     ) : RevoltWebSocketResponse()
+
+    @JsonDeserialize(using = SinglePolyUnwrappedDeserializer::class)
     data class Message(
         @param:JsonProperty("type") val type: String,
-        @JsonUnwrapped
+        @JsonProperty("message")
+        @field:JsonUnwrapped
         val message: RevoltMessage
     ) : RevoltWebSocketResponse()
     data class MessageUpdate(
@@ -161,9 +165,12 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("channel") val channelId: String,
         @param:JsonProperty("emoji_id") val emojiId: String,
     ) : RevoltWebSocketResponse()
+
+    @JsonDeserialize(using = SinglePolyUnwrappedDeserializer::class)
     data class ChannelCreate(
         @param:JsonProperty("type") val type: String,
-        @JsonUnwrapped
+        @JsonProperty("channel")
+        @field:JsonUnwrapped
         val channel: RevoltChannel
     ) : RevoltWebSocketResponse()
     data class ChannelUpdate(
@@ -202,9 +209,12 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("user") val userId: String,
         @param:JsonProperty("message_id") val messageId: String,
     ) : RevoltWebSocketResponse()
+
+    @JsonDeserialize(using = SinglePolyUnwrappedDeserializer::class)
     data class ServerCreate(
         @param:JsonProperty("type") val type: String,
-        @JsonUnwrapped
+        @JsonProperty("server")
+        @field:JsonUnwrapped
         val server: RevoltServer
     ) : RevoltWebSocketResponse()
     data class ServerUpdate(
@@ -262,9 +272,12 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("user_id") val userId: String,
         @param:JsonProperty("flags") val flags: String,
     ) : RevoltWebSocketResponse()
+
+    @JsonDeserialize(using = SinglePolyUnwrappedDeserializer::class)
     data class EmojiCreate(
         @param:JsonProperty("type") val type: String,
-        @JsonUnwrapped
+        @JsonProperty("emoji")
+        @field:JsonUnwrapped
         val emoji: Emoji
     ) : RevoltWebSocketResponse()
     data class EmojiDelete(

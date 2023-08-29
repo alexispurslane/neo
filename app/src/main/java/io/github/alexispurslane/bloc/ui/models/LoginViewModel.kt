@@ -7,7 +7,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
-import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.models.LoginRequest
 import io.github.alexispurslane.bloc.data.network.models.LoginResponse
 import io.github.alexispurslane.bloc.data.network.models.MFAResponse
@@ -37,6 +36,7 @@ data class LoginUiState(
 class LoginViewModel @Inject constructor(
     private val revoltAccountRepository: RevoltAccountsRepository,
 ): ViewModel() {
+    private var websocketUrl: String? = null
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
@@ -65,12 +65,30 @@ class LoginViewModel @Inject constructor(
     fun onMultiFactorLoginConfirm(mfaMethod: String, mfaResponse: String, setLoggedIn: (Boolean) -> Unit) {
         viewModelScope.launch {
             val loginResponse = revoltAccountRepository.login(
-                uiState.value.instanceApiUrl, uiState.value.instanceEmailAddress, RevoltWebSocketModule.websocketUrl!!, LoginRequest.MFA(
+                uiState.value.instanceApiUrl,
+                uiState.value.instanceEmailAddress,
+                websocketUrl!!,
+                LoginRequest.MFA(
                     mfaTicket = uiState.value.mfaTicket,
                     mfaResponse = when (mfaMethod) {
-                        "Password" -> MFAResponse(password = mfaResponse, null, null)
-                        "Recovery" -> MFAResponse(null, null, recoveryCode = mfaResponse)
-                        "Totp" -> MFAResponse(null, totpCode = mfaResponse, null)
+                        "Password" -> MFAResponse(
+                            password = mfaResponse,
+                            null,
+                            null
+                        )
+
+                        "Recovery" -> MFAResponse(
+                            null,
+                            null,
+                            recoveryCode = mfaResponse
+                        )
+
+                        "Totp" -> MFAResponse(
+                            null,
+                            totpCode = mfaResponse,
+                            null
+                        )
+
                         else -> return@launch
                     },
                     friendlyName = "Bloc",
@@ -93,7 +111,7 @@ class LoginViewModel @Inject constructor(
                 val loginResponse = revoltAccountRepository.login(
                     uiState.value.instanceApiUrl,
                     uiState.value.instanceEmailAddress,
-                    RevoltWebSocketModule.websocketUrl!!,
+                    websocketUrl!!,
                     LoginRequest.Basic(
                         email = uiState.value.instanceEmailAddress,
                         password = uiState.value.instancePassword,
@@ -156,13 +174,14 @@ class LoginViewModel @Inject constructor(
             RevoltApiModule.setBaseUrl(instanceApiUrl)
             val res = revoltAccountRepository.queryNode(instanceApiUrl)
             if (res.isSuccessful && res.body() != null) {
+                websocketUrl = res.body()!!.ws
                 Pair(true, "That looks like a Revolt v${res.body()!!.revolt} instance!")
             } else {
                 Pair(false, "Uh oh! Got status code: ${res.message()}")
             }
         } catch (e: Exception) {
             Log.d("QUERY NODE ERROR", e.toString())
-            Pair(false, "Uh oh! ${e.message}")
+            throw e
         }
     }
 

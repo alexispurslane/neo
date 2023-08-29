@@ -76,15 +76,25 @@ fun HomeScreen(
 
     ScrollableThreeDrawerScaffold(
         left = {
-            ServerChannelNav(navController, uiState.servers, uiState.channels)
+            ServerChannelNav(
+                navController,
+                uiState.servers,
+                uiState.channels,
+                it
+            )
         },
         middle = {
             NavHost(navController, startDestination = "welcome") {
                 composable("welcome") { WelcomeScreen(setLoggedIn = setLoggedIn) }
                 composable("profile") { UserProfileScreen(navController) }
+                composable("channel/{channelId}") {
+                    // channelId argument automatically passed to
+                    // ServerChannelViewModel by SavedStateHandle!
+                    ChannelViewScreen()
+                }
             }
         },
         right = {
-        }
+        },
     )
 }

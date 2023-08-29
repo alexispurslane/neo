@@ -9,11 +9,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,11 +25,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.modifier.modifierLocalConsumer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
-import androidx.core.view.WindowInsetsCompat
 import kotlin.math.roundToInt
 
 enum class TrayState {
@@ -40,19 +35,25 @@ enum class TrayState {
     RIGHT_OPEN,
 }
 
+typealias ResetCallback = () -> Unit
+
 @Composable
 fun ScrollableThreeDrawerScaffold(
-    left: @Composable() (() -> Unit),
-    middle: @Composable() (() -> Unit),
-    right: @Composable() (() -> Unit),
+    left: @Composable() ((ResetCallback) -> Unit),
+    middle: @Composable() ((ResetCallback) -> Unit),
+    right: @Composable() ((ResetCallback) -> Unit),
     traySize: Int = 64,
 ) {
     val configuration = LocalConfiguration.current
 
     var middleOffset by remember { mutableStateOf(0.dp) }
-    val transition = updateTransition(targetState = middleOffset, label = "Middle Pane")
+    val reset = {
+        middleOffset = 0.dp
+    }
+    val transition =
+        updateTransition(targetState = middleOffset, label = "Middle Pane")
     val animatedOffset by transition.animateDp(label = "Middle Pane Offset") {
-        it
+        middleOffset
     }
     var trayGestureState by remember { mutableStateOf(TrayState.DEFAULT) }
     var trayVisibilityState by remember { mutableStateOf(TrayState.DEFAULT) }
@@ -63,16 +64,19 @@ fun ScrollableThreeDrawerScaffold(
     else trayVisibilityState
 
     Box(
-        modifier = Modifier.fillMaxSize()
-            .background(Color(0xFF0f0f0f))
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.secondaryContainer)
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDrag = { change, delta ->
                         change.consume()
-                        val new = middleOffset + (delta.x * 0.6).roundToInt().dp
+                        val new =
+                            middleOffset + (delta.x * 0.6).roundToInt().dp
                         if ((new <= (configuration.screenWidthDp - traySize).dp && trayVisibilityState == TrayState.LEFT_OPEN) ||
                             (new >= -(configuration.screenWidthDp - traySize).dp && trayVisibilityState == TrayState.RIGHT_OPEN) ||
-                            trayVisibilityState == TrayState.DEFAULT)
+                            trayVisibilityState == TrayState.DEFAULT
+                        )
                             middleOffset = new
                     },
                     onDragEnd = {
@@ -80,21 +84,25 @@ fun ScrollableThreeDrawerScaffold(
                             TrayState.DEFAULT -> {
                                 if (middleOffset > traySize.dp) {
                                     trayGestureState = TrayState.LEFT_OPEN
-                                    middleOffset = (configuration.screenWidthDp - traySize).dp
+                                    middleOffset =
+                                        (configuration.screenWidthDp - traySize).dp
                                 } else if (middleOffset < -traySize.dp) {
                                     trayGestureState = TrayState.RIGHT_OPEN
-                                    middleOffset = -(configuration.screenWidthDp - traySize).dp
+                                    middleOffset =
+                                        -(configuration.screenWidthDp - traySize).dp
                                 } else {
                                     trayGestureState = TrayState.DEFAULT
                                     middleOffset = 0.dp
                                 }
                             }
+
                             TrayState.LEFT_OPEN -> {
                                 if (middleOffset < (configuration.screenWidthDp - traySize).dp) {
                                     trayGestureState = TrayState.DEFAULT
                                     middleOffset = 0.dp
                                 }
                             }
+
                             TrayState.RIGHT_OPEN -> {
                                 if (middleOffset > -(configuration.screenWidthDp - traySize).dp) {
                                     trayGestureState = TrayState.DEFAULT
@@ -115,7 +123,7 @@ fun ScrollableThreeDrawerScaffold(
                 .alpha(if (trayVisibilityState == TrayState.LEFT_OPEN) 1f else 0f)
             ,
         ) {
-            left()
+            left(reset)
         }
         Box(
             modifier = Modifier
@@ -125,7 +133,7 @@ fun ScrollableThreeDrawerScaffold(
                 .safeDrawingPadding()
                 .alpha(if (trayVisibilityState == TrayState.RIGHT_OPEN) 1f else 0f)
         ) {
-            right()
+            right(reset)
         }
         Box(
             modifier = Modifier
@@ -135,12 +143,12 @@ fun ScrollableThreeDrawerScaffold(
                 .clickable {
                     middleOffset = 0.dp
                 }
-                .clip(if (trayVisibilityState != TrayState.DEFAULT) RoundedCornerShape(1) else RectangleShape)
+                .clip(if (trayVisibilityState != TrayState.DEFAULT) MaterialTheme.shapes.small else RectangleShape)
                 .background(Color.Black)
                 .safeDrawingPadding()
                 .shadow(1.dp)
         ) {
-            middle()
+            middle(reset)
         }
     }
 }

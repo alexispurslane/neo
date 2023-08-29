@@ -33,3 +33,13 @@ data class MFAResponse(
     @get:JsonProperty("totp_code") val totpCode: String? = null,
     @get:JsonProperty("recovery_code") val recoveryCode: String? = null
 )
+
+@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
+data class MessageRequest(
+    @get:JsonProperty("limit") val limit: Int? = null,
+    @get:JsonProperty("before") val before: String? = null,
+    @get:JsonProperty("after") val after: String? = null,
+    @get:JsonProperty("sort") val sort: String? = null,
+    @get:JsonProperty("nearby") val nearby: String? = null,
+    @get:JsonProperty("include_users") val includeUsers: Boolean? = null
+)

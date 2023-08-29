@@ -9,25 +9,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
-import androidx.compose.foundation.layout.requiredWidth
-import androidx.compose.foundation.layout.safeContentPadding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
@@ -47,15 +39,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.toLowerCase
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -69,12 +58,13 @@ import java.util.Locale
 @Composable
 fun ServerChannelNav(
     navController: NavHostController,
-    servers: List<RevoltServer>,
+    servers: Map<String, RevoltServer>,
     channels: Map<String, RevoltChannel>,
+    onNavigate: () -> Unit
 ) {
     val configuration = LocalConfiguration.current
 
-    var currentServer by remember { mutableStateOf(0) }
+    var currentServer by remember { mutableStateOf("") }
     var currentChannelId by remember { mutableStateOf("") }
 
     Row(
@@ -93,7 +83,13 @@ fun ServerChannelNav(
                     .fillMaxWidth(),
                 shape = CircleShape,
                 contentPadding = PaddingValues(0.dp),
-                onClick = { navController.navigate("profile") }
+                onClick = {
+                    currentServer = ""
+                    if (navController.currentDestination?.navigatorName != "profile") {
+                        navController.navigate("profile")
+                    }
+                    onNavigate()
+                }
             ) {
                 Icon(
                     imageVector = Icons.Filled.Person,
@@ -104,10 +100,10 @@ fun ServerChannelNav(
                 modifier = Modifier
                     .aspectRatio(1.0F)
                     .fillMaxWidth(),
-                shape = if (currentServer == -1) MaterialTheme.shapes.large else CircleShape,
+                shape = if (currentServer == "@dms") MaterialTheme.shapes.large else CircleShape,
                 contentPadding = PaddingValues(0.dp),
                 onClick = {
-                    currentServer = -1
+                    currentServer = "@dms"
                 }
             ) {
                 Icon(
@@ -115,9 +111,11 @@ fun ServerChannelNav(
                     contentDescription = null
                 )
             }
-            servers.forEachIndexed { index, server ->
-                val shape = if (index == currentServer) MaterialTheme.shapes.large else CircleShape
-                val elevation = if (index == currentServer) ButtonDefaults.elevatedButtonElevation() else ButtonDefaults.buttonElevation()
+            servers.values.forEachIndexed { index, server ->
+                val shape =
+                    if (server.serverId == currentServer) MaterialTheme.shapes.large else CircleShape
+                val elevation =
+                    if (server.serverId == currentServer) ButtonDefaults.elevatedButtonElevation() else ButtonDefaults.buttonElevation()
                 Button(
                     modifier = Modifier
                         .aspectRatio(1.0F)
@@ -125,7 +123,7 @@ fun ServerChannelNav(
                     shape = shape,
                     contentPadding = PaddingValues(0.dp),
                     onClick = {
-                        currentServer = index
+                        currentServer = server.serverId
                     },
                     elevation = elevation
                 ) {
@@ -154,13 +152,13 @@ fun ServerChannelNav(
                     .background(Color(0x22000000)),
                 contentAlignment = Alignment.BottomStart
             ) {
-                if (servers.getOrNull(currentServer)?.banner != null)
+                if (servers.get(currentServer)?.banner != null)
                     AsyncImage(
-                        model = RevoltApiModule.getResourceUrl(servers[currentServer].banner!!),
+                        model = RevoltApiModule.getResourceUrl(servers[currentServer]!!.banner!!),
                         contentDescription = "Server Banner"
                     )
                 Text(
-                    servers.getOrNull(currentServer)?.name ?: "@dms",
+                    servers.get(currentServer)?.name ?: "@dms",
                     modifier = Modifier.padding(start = 10.dp),
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Black,
@@ -172,18 +170,22 @@ fun ServerChannelNav(
                     .fillMaxSize()
                     .scrollable(rememberScrollState(), Orientation.Vertical)
             ) {
-                servers.getOrNull(currentServer)?.channelsIds?.forEach { channelId ->
+                servers.get(currentServer)?.channelsIds?.forEach { channelId ->
                     val channel = channels[channelId]
-                    val notInCategory = servers.getOrNull(currentServer)?.categories?.find {
-                        it.channelIds.contains(channelId)
-                    } == null
+                    val notInCategory =
+                        servers.get(currentServer)?.categories?.find {
+                            it.channelIds.contains(channelId)
+                        } == null
                     if (channel != null && channel is RevoltChannel.TextChannel && notInCategory) {
-                        ChannelRow(channel = channel, selected = currentChannelId == channelId) {
+                        ChannelRow(
+                            channel = channel,
+                            selected = currentChannelId == channelId
+                        ) {
                             currentChannelId = channelId
                         }
                     }
                 }
-                servers.getOrNull(currentServer)?.categories?.forEach { category ->
+                servers.get(currentServer)?.categories?.forEach { category ->
                     Text(
                         category.title.lowercase(Locale.getDefault()),
                         fontSize = 15.sp,
@@ -198,7 +200,11 @@ fun ServerChannelNav(
                             ChannelRow(
                                 channel = channel,
                                 selected = channelId == currentChannelId,
-                                onClick = { currentChannelId = channelId }
+                                onClick = {
+                                    currentChannelId = channelId
+                                    navController.navigate("channel/${currentChannelId}")
+                                    onNavigate()
+                                }
                             )
                     }
                 }

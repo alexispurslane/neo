@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -27,6 +30,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -115,7 +119,10 @@ fun UserRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (userProfile.avatar != null) {
-            UserAvatar(userProfile)
+            UserAvatar(
+                size = 64.dp,
+                userProfile = userProfile
+            )
         }
         Column {
             Text("${userProfile.displayName}",
@@ -137,26 +144,45 @@ fun UserRow(
 
 @Composable
 fun UserAvatar(
+    modifier: Modifier = Modifier,
+    size: Dp,
     userProfile: RevoltUser,
 ) {
     Box {
-        AsyncImage(
-            modifier = Modifier
-                .size(64.dp)
-                .aspectRatio(1f)
-                .clip(CircleShape),
-            model = RevoltApiModule.getResourceUrl(userProfile.avatar!!),
-            contentDescription = "User Avatar",
-            contentScale = ContentScale.Crop
-        )
-
-        val presenceColor = when (userProfile.status?.presence ?: Presence.ONLINE) {
-            Presence.ONLINE -> Color(0xFF3ABF7E)
-            Presence.IDLE -> Color.Yellow
-            Presence.BUSY -> Color.Red
-            Presence.FOCUS -> Color.Magenta
-            Presence.Invisible -> Color.Transparent
+        if (userProfile.avatar != null) {
+            AsyncImage(
+                modifier = modifier
+                    .size(size)
+                    .aspectRatio(1f)
+                    .clip(CircleShape),
+                model = RevoltApiModule.getResourceUrl(userProfile.avatar),
+                contentDescription = "User Avatar",
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Box(
+                modifier = modifier
+                    .size(size)
+                    .aspectRatio(1f)
+                    .clip(CircleShape)
+                    .background(Color.LightGray),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Person,
+                    contentDescription = "No Avatar User Icon"
+                )
+            }
         }
+
+        val presenceColor =
+            when (userProfile.status?.presence ?: Presence.ONLINE) {
+                Presence.ONLINE -> Color(0xFF3ABF7E)
+                Presence.IDLE -> Color.Yellow
+                Presence.BUSY -> Color.Red
+                Presence.FOCUS -> Color.Magenta
+                Presence.Invisible -> Color.Transparent
+            }
         val color =
             if (userProfile.online == true || userProfile.online == null) {
                 presenceColor
@@ -164,10 +190,12 @@ fun UserAvatar(
                 Color.Gray
             }
 
+        val statusSize = (size / 3)
+        val statusOffset = (size / 2 - statusSize / 2 - 1.dp)
         Box(
             modifier = Modifier
-                .offset(x = 23.dp, y = 23.dp)
-                .size(24.dp)
+                .offset(x = statusOffset, y = statusOffset)
+                .size(statusSize)
                 .aspectRatio(1f)
                 .clip(CircleShape)
                 .background(color)

@@ -14,8 +14,27 @@
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+
+-dontwarn kotlin.reflect.jvm.internal.**
+-keep class kotlin.reflect.jvm.internal.** { *; }
+-keep interface javax.annotation.Nullable
+
+-keepattributes Signature,RuntimeVisibleAnnotations,AnnotationDefault
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-dontwarn javax.annotation.**
+-keepclasseswithmembers class * {
+    @retrofit2.http.* <methods>;
+}
+-keep,allowobfuscation,allowshrinking class retrofit2.Response
+
+-keep class kotlin.Metadata { *; }
+-keep class kotlin.reflect.** { *; }
+-keep class io.github.alexispurslane.bloc.data.network.models.* { *; }

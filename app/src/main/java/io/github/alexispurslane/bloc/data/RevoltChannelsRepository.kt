@@ -1,7 +1,8 @@
-package io.github.alexispurslane.bloc.data.network
+package io.github.alexispurslane.bloc.data
 
-import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 import android.util.Log
+import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
+import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -9,7 +10,6 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject

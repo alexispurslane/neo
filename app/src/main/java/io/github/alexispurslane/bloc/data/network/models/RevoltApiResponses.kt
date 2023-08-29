@@ -1,11 +1,13 @@
 package io.github.alexispurslane.bloc.data.network.models
 
+import androidx.annotation.Keep
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonSubTypes.Type
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonValue
 import com.fasterxml.jackson.databind.JsonNode
+
 
 data class BuildResponse(
     @JsonProperty("commit_sha") val commitSha: String,
@@ -15,6 +17,7 @@ data class BuildResponse(
     @JsonProperty("timestamp") val timestamp: String,
 )
 
+
 data class QueryNodeResponse(
     @JsonProperty("revolt") val revolt: String,
     @JsonProperty("ws") val ws: String,
@@ -23,6 +26,7 @@ data class QueryNodeResponse(
     @JsonProperty("features") val features: JsonNode,
     @JsonProperty("build") val build: BuildResponse
 )
+
 
 data class WebPushSubscriptionResponse(
     @JsonProperty("endpoint") val endpoint: String,
@@ -42,6 +46,7 @@ data class WebPushSubscriptionResponse(
     Type(value = LoginResponse.MFA::class, name = "MFA"),
 )
 sealed class LoginResponse private constructor() {
+    @Keep
     data class Success(
         @param:JsonProperty("result") val result: String = "Success",
         @param:JsonProperty("_id") val id: String,
@@ -51,11 +56,13 @@ sealed class LoginResponse private constructor() {
         @param:JsonProperty("subscription") val webPushSubscription: WebPushSubscriptionResponse? = null
     ) : LoginResponse()
 
+    @Keep
     data class Disabled(
         @param:JsonProperty("result") val result: String = "Disabled",
         @param:JsonProperty("user_id") val userId: String,
     ) : LoginResponse()
 
+    @Keep
     data class MFA(
         @param:JsonProperty("result") val result: String = "MFA",
         @param:JsonProperty("ticket") val ticket: String,
@@ -81,6 +88,7 @@ enum class Presence(@JsonValue val presence: String) {
     Invisible("Invisible"),
 }
 
+
 data class RevoltUser(
     @param:JsonProperty("_id") val userId: String,
     @param:JsonProperty("username") val userName: String,
@@ -97,6 +105,7 @@ data class RevoltUser(
     @param:JsonProperty("relationship") val relationship: String?,
     @param:JsonProperty("online") val online: Boolean?,
 )
+
 
 data class AutumnFile(
     @param:JsonProperty("_id") val fileId: String,
@@ -127,21 +136,29 @@ data class AutumnFile(
     Type(value = RevoltFileMetadata.Audio::class, name = "Audio"),
 )
 sealed class RevoltFileMetadata private constructor() {
+    @Keep
     data class File(
         @param:JsonProperty("type") val type: String,
     ) : RevoltFileMetadata()
+
+    @Keep
     data class Text(
         @param:JsonProperty("type") val type: String,
     ) : RevoltFileMetadata()
+
+    @Keep
     data class Audio(
         @param:JsonProperty("type") val type: String,
     ) : RevoltFileMetadata()
+
+    @Keep
     data class Image(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("width") val width: Int,
         @param:JsonProperty("height") val height: Int,
     ) : RevoltFileMetadata()
 
+    @Keep
     data class Video(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("width") val width: Int,
@@ -149,23 +166,29 @@ sealed class RevoltFileMetadata private constructor() {
     ) : RevoltFileMetadata()
 }
 
+
 data class UserRelation(
     @param:JsonProperty("_id") val userId: String,
     @param:JsonProperty("status") val status: RelationshipStatus
 )
+
 
 data class UserStatus(
     @param:JsonProperty("text") val customStatus: String?,
     @param:JsonProperty("presence") val presence: Presence?
 )
 
+
 data class UserProfile(
     @param:JsonProperty("content") val content: String?,
     @param:JsonProperty("background") val background: AutumnFile?,
 )
+
+
 data class BotInformation(
     @param:JsonProperty("owner") val ownerId: String
 )
+
 
 data class RevoltServer(
     @param:JsonProperty("_id") val serverId: String,
@@ -185,11 +208,13 @@ data class RevoltServer(
     @param:JsonProperty("discoverable") var discoverable: Boolean?,
 )
 
+
 data class ServerCategory(
     @param:JsonProperty("id") val categoryId: String,
     @param:JsonProperty("title") val title: String,
     @param:JsonProperty("channels") val channelIds: List<String>,
 )
+
 
 data class SystemMessagesConfig(
     @param:JsonProperty("user_joined") val userJoinedChannelId: String?,
@@ -198,6 +223,7 @@ data class SystemMessagesConfig(
     @param:JsonProperty("user_banned") val userBannedChannelId: String?,
 )
 
+
 data class Role(
     @param:JsonProperty("name") val name: String,
     @param:JsonProperty("permissions") val permissions: Permissions,
@@ -205,6 +231,7 @@ data class Role(
     @param:JsonProperty("hoist") val hoist: Boolean?,
     @param:JsonProperty("rank") val rank: Int = 0,
 )
+
 
 data class Permissions(
     @param:JsonProperty("a") val allow: Long,
@@ -225,11 +252,14 @@ data class Permissions(
     Type(value = RevoltChannel.VoiceChannel::class, name = "VoiceChannel"),
 )
 sealed class RevoltChannel private constructor() {
+    @Keep
     data class SavedMessages(
         @param:JsonProperty("channel_type") val channelType: String,
         @param:JsonProperty("_id") val channelId: String,
         @param:JsonProperty("user") val userId: String
     ) : RevoltChannel()
+
+    @Keep
     data class DirectMessage(
         @param:JsonProperty("channel_type") val channelType: String,
         @param:JsonProperty("_id") val channelId: String,
@@ -237,6 +267,8 @@ sealed class RevoltChannel private constructor() {
         @param:JsonProperty("recipients") val participantUserIds: List<String>,
         @param:JsonProperty("last_message_id") val lastMessageId: String?,
     ) : RevoltChannel()
+
+    @Keep
     data class Group(
         @param:JsonProperty("channel_type") val channelType: String,
         @param:JsonProperty("_id") val channelId: String,
@@ -249,6 +281,8 @@ sealed class RevoltChannel private constructor() {
         @param:JsonProperty("permissions") val permissions: Long?,
         @param:JsonProperty("nsfw") val nsfw: Boolean?,
     ) : RevoltChannel()
+
+    @Keep
     data class TextChannel(
         @param:JsonProperty("channel_type") val channelType: String,
         @param:JsonProperty("_id") val channelId: String,
@@ -261,6 +295,8 @@ sealed class RevoltChannel private constructor() {
         @param:JsonProperty("role_permissions") val rolePermissions: Map<String, Permissions>?,
         @param:JsonProperty("nsfw") val nsfw: Boolean?,
     ) : RevoltChannel()
+
+    @Keep
     data class VoiceChannel(
         @param:JsonProperty("channel_type") val channelType: String,
         @param:JsonProperty("_id") val channelId: String,
@@ -274,6 +310,7 @@ sealed class RevoltChannel private constructor() {
     ) : RevoltChannel()
 }
 
+
 data class Emoji(
     @param:JsonProperty("_id") val emojiId: String,
     @param:JsonProperty("parent") val parent: EmojiParent,
@@ -283,13 +320,15 @@ data class Emoji(
     @param:JsonProperty("nsfw") val nsfw: Boolean?,
 )
 
+
 data class EmojiParent(
     @param:JsonProperty("type") val type: String,
     @param:JsonProperty("id") val serverId: String?
 )
 
+
 data class RevoltMessage(
-    @param:JsonProperty("id") val messageId: String,
+    @param:JsonProperty("_id") val messageId: String,
     @param:JsonProperty("nonce") val nonce: String?,
     @param:JsonProperty("channel") val channelId: String,
     @param:JsonProperty("author") val authorId: String,
@@ -306,11 +345,13 @@ data class RevoltMessage(
     @param:JsonProperty("masquerade") val masquerade: Masquerade?,
 )
 
+
 data class Masquerade(
     @param:JsonProperty("name") val name: String?,
     @param:JsonProperty("avatar") val avatarUrl: String?,
     @param:JsonProperty("colour") val color: String?,
 )
+
 
 data class InteractionsGuide(
     @param:JsonProperty("reactions") val reactions: List<String>?,
@@ -318,6 +359,7 @@ data class InteractionsGuide(
 )
 
 // TODO: Turn this into a discriminated union like the other stuff for proper type-safety
+
 data class SystemEventMessage(
     @param:JsonProperty("type") val type: String,
     @param:JsonProperty("content") val content: String?,
@@ -327,7 +369,30 @@ data class SystemEventMessage(
     @param:JsonProperty("by") val by: String?,
 )
 
+
 data class Webhook(
     @param:JsonProperty("name") val name: String,
     @param:JsonProperty("avatar") val avatar: String?
+)
+
+
+data class RevoltMembersResponse(
+    @param:JsonProperty("members") val members: List<RevoltServerMember>,
+    @param:JsonProperty("users") val users: List<RevoltUser>
+)
+
+
+data class RevoltServerMember(
+    @param:JsonProperty("_id") val compositePrimaryId: RevoltCompositeId,
+    @param:JsonProperty("joined_at") val joinedAt: String,
+    @param:JsonProperty("nickname") val nickname: String?,
+    @param:JsonProperty("avatar") val avatar: AutumnFile?,
+    @param:JsonProperty("roles") val roles: List<String>?,
+    @param:JsonProperty("timeout") val timeout: String?,
+)
+
+
+data class RevoltCompositeId(
+    @param:JsonProperty("server") val server: String,
+    @param:JsonProperty("user") val user: String,
 )
