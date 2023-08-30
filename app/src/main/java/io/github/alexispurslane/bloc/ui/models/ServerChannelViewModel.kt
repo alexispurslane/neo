@@ -1,6 +1,8 @@
 package io.github.alexispurslane.bloc.ui.models
 
 import android.util.Log
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,6 +20,7 @@ import io.github.alexispurslane.bloc.data.network.models.RevoltUser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -26,9 +29,10 @@ data class ServerChannelUiState(
     val channelId: String? = null,
     val channelInfo: RevoltChannel? = null,
     val serverInfo: RevoltServer? = null,
-    val messages: List<RevoltMessage> = emptyList(),
     val users: Map<String, Pair<RevoltUser, RevoltServerMember>> = emptyMap(),
+    val messages: SnapshotStateList<RevoltMessage> = mutableStateListOf(),
     val currentUserId: String? = null,
+    val error: String? = null
 )
 @HiltViewModel
 class ServerChannelViewModel @Inject constructor(
@@ -57,126 +61,68 @@ class ServerChannelViewModel @Inject constructor(
             }
         }
 
-        // Whenever the current channel changes, get the initial dump of messages
         viewModelScope.launch {
             savedStateHandle.getStateFlow("channelId", null)
-                .collect { channelId: String? ->
+                .collectLatest { channelId: String? ->
                     if (channelId != null) {
                         _uiState.update {
-                            fetchInitialMessages(channelId, it)
+                            initializeChannelData(channelId, it)
                         }
                     }
                 }
-        }
-
-        // When a new message is added, add it.
-        //
-        // NOTE: These are separate stages, instead of having a continuous
-        // SharedFlow<List<Message>>, for performance reasons, so the whole
-        // list doesn't have to get re-built over and over and over again
-        viewModelScope.launch {
-            revoltMessagesRepository.messages.collect { newMessage ->
-                Log.d("CHANNEL VIEW", newMessage.toString())
-                if (newMessage.channelId == uiState.value.channelId) {
-                    Log.d(
-                        "CHANNEL VIEW",
-                        "Correct ID: ${newMessage.channelId} == ${uiState.value.channelId}"
-                    )
-                    Log.d(
-                        "CHANNEL VIEW",
-                        "message count: ${uiState.value.messages.size}"
-                    )
-                    val message = newMessage.copy(
-                        content = newMessage.content?.replace(regex) { matchResult: MatchResult ->
-                            uiState.value.users[matchResult.groupValues[0]]?.first?.displayName
-                                ?: "unknown_user"
-                        }
-                    )
-                    _uiState.update { prevState ->
-                        prevState.copy(
-                            messages = prevState.messages.plus(message)
-                        )
-                    }
-                    Log.d(
-                        "CHANNEL VIEW",
-                        "message count: ${uiState.value.messages.size}"
-                    )
-                }
-            }
         }
     }
 
-    private suspend fun fetchInitialMessages(
+    private suspend fun initializeChannelData(
         channelId: String,
-        it: ServerChannelUiState
+        prevState: ServerChannelUiState
     ): ServerChannelUiState {
-        when (val channelInfo =
-            revoltChannelsRepository.channels.value[channelId]) {
-            is RevoltChannel.TextChannel -> {
-                val serverInfo =
-                    revoltServersRepository.servers.value[channelInfo.serverId]
-                if (serverInfo != null) {
-                    when (val messages =
-                        revoltMessagesRepository.fetchMessages(
-                            channelId,
-                            limit = 50,
-                        )) {
-                        is Either.Success -> {
-                            val users = when (val membersInfo =
-                                revoltServersRepository.fetchServerMembers(
-                                    serverInfo.serverId
-                                )) {
-                                is Either.Success -> {
-                                    membersInfo.value.users.zip(membersInfo.value.members)
-                                        .associate { (user, member) ->
-                                            Log.d(
-                                                "CHANNEL VIEW",
-                                                "Found user ${user.userId}, @${user.userName}#${user.discriminator}"
-                                            )
-                                            user.userId to (user to member)
-                                        }
-                                }
+        val channelInfo = revoltChannelsRepository.channels.value[channelId]
+        if (channelInfo !is RevoltChannel.TextChannel) return prevState.copy(
+            error = "Uh oh! Unable to locate channel"
+        )
 
-                                is Either.Error -> {
-                                    Log.e(
-                                        "CHANNEL VIEW",
-                                        "Unable to retrieve server member list: ${membersInfo.value}"
-                                    )
-                                    it.users
-                                }
-                            }
-                            return it.copy(
-                                channelId = channelId,
-                                channelInfo = channelInfo,
-                                serverInfo = serverInfo,
-                                messages = messages.value.map {
-                                    it.copy(
-                                        content = it.content?.replace(regex) { matchResult: MatchResult ->
-                                            Log.d(
-                                                "CHANNEL VIEW",
-                                                matchResult.groupValues[1]
-                                            )
-                                            "@" + (users.get(matchResult.groupValues[1])?.first?.userName
-                                                ?: "unknown_user")
-                                        }
-                                    )
-                                },
-                                users = users
-                            )
-                        }
+        val serverInfo =
+            revoltServersRepository.servers.value[channelInfo.serverId]
+        if (serverInfo == null) return prevState.copy(error = "Uh oh! Unable to locate server")
 
-                        is Either.Error -> {
-                            Log.e(
-                                "CHANNEL VIEW",
-                                messages.value
-                            )
-                        }
-                    }
-                }
+        val membersInfo =
+            revoltServersRepository.fetchServerMembers(serverInfo.serverId)
+        if (membersInfo is Either.Error) return prevState.copy(error = membersInfo.value)
+
+        val members = membersInfo as Either.Success
+        val users = members.value.users.zip(members.value.members)
+            .associate { (user, member) ->
+                Log.d(
+                    "CHANNEL VIEW",
+                    "Found user ${user.userId}, @${user.userName}#${user.discriminator}"
+                )
+                user.userId to (user to member)
             }
 
-            else -> {}
-        }
-        return it
+        val messages = revoltMessagesRepository.fetchChannelMessages(
+            channelId,
+            limit = 50
+        )
+        if (messages is Either.Error) return prevState.copy(error = messages.value)
+
+        return prevState.copy(
+            channelId = channelId,
+            channelInfo = channelInfo,
+            serverInfo = serverInfo,
+            users = users,
+            messages = (messages as Either.Success).value
+
+        )
+    }
+
+    suspend fun fetchEarlierMessages() {
+        Log.d("CHANNEL VIEW", "Fetching earlier messages")
+        if (uiState.value.channelId != null)
+            revoltMessagesRepository.fetchChannelMessages(
+                uiState.value.channelId!!,
+                limit = 50,
+                before = uiState.value.messages.last().messageId
+            )
     }
 }

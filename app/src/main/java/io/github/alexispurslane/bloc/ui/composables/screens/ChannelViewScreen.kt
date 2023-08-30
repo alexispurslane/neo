@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -42,7 +43,9 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults.topAppBarColors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -82,6 +85,31 @@ fun ChannelViewScreen(
 
     if (uiState.channelInfo == null) {
         LoadingScreen()
+    } else if (uiState.error != null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 50.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    uiState.error!!.split(':')[0],
+                    fontWeight = FontWeight.Black,
+                    fontSize = 30.sp,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    uiState.error!!.split(':')[1],
+                    fontWeight = FontWeight.Black,
+                    fontSize = 10.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
     } else {
         if (uiState.channelInfo is RevoltChannel.TextChannel) {
             val channelInfo = uiState.channelInfo as RevoltChannel.TextChannel
@@ -90,6 +118,16 @@ fun ChannelViewScreen(
                     ChannelTopBar(channelInfo)
                 },
                 content = {
+                    val messageListState = rememberLazyListState()
+                    LaunchedEffect(uiState.messages.size) {
+                        messageListState.scrollToItem(0)
+                    }
+                    val isAtStartState by remember { derivedStateOf { messageListState.firstVisibleItemIndex } }
+                    LaunchedEffect(isAtStartState) {
+                        if (messageListState.firstVisibleItemIndex == uiState.messages.size) {
+                            channelViewModel.fetchEarlierMessages()
+                        }
+                    }
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
@@ -99,7 +137,8 @@ fun ChannelViewScreen(
                             Alignment.Bottom
                         ),
                         horizontalAlignment = Alignment.Start,
-                        reverseLayout = true
+                        reverseLayout = true,
+                        state = messageListState
                     ) {
                         itemsIndexed(
                             uiState.messages,
@@ -120,7 +159,7 @@ fun ChannelViewScreen(
                                         it
                                     ) ?: false
                                 }?.values?.minByOrNull { it.rank },
-                                prevMessage = if (index > 0) uiState.messages[index - 1] else null
+                                prevMessage = uiState.messages.getOrNull(index + 1)
                             )
                         }
                     }

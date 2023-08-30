@@ -10,8 +10,6 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalAutofill
 import androidx.compose.ui.platform.LocalAutofillTree
-import org.json.JSONObject
-import retrofit2.Response
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun Modifier.autofill(
@@ -22,17 +20,19 @@ fun Modifier.autofill(
     val autofillNode = AutofillNode(onFill = onFill, autofillTypes = autofillTypes)
     LocalAutofillTree.current += autofillNode
 
-    this.onGloballyPositioned {
-        autofillNode.boundingBox = it.boundsInWindow()
-    }.onFocusChanged { focusState ->
-        autofill?.run {
-            if (focusState.isFocused) {
-                requestAutofillForNode(autofillNode)
-            } else {
-                cancelAutofillForNode(autofillNode)
+    this
+        .onGloballyPositioned {
+            autofillNode.boundingBox = it.boundsInWindow()
+        }
+        .onFocusChanged { focusState ->
+            autofill?.run {
+                if (focusState.isFocused) {
+                    requestAutofillForNode(autofillNode)
+                } else {
+                    cancelAutofillForNode(autofillNode)
+                }
             }
         }
-    }
 }
 
 sealed class Either<T, E>() {
@@ -75,4 +75,14 @@ object Constants {
         "Laws! We know what they are, and what they are worth! Spider webs for the rich and powerful, steel chains for the weak and poor, fishing nets in the hands of the government.",
         "To restore religion, it is necessary to condemn the Church."
     )
+}
+
+fun <T> List<T>.findIndex(
+    predicate: (index: Int, element: T) -> Boolean
+): Int? {
+    forEachIndexed { index, element ->
+        if (predicate(index, element)) return index
+    }
+
+    return null
 }
