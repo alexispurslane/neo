@@ -2,8 +2,6 @@ package io.github.alexispurslane.bloc.ui.composables.navigation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
@@ -40,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
@@ -172,7 +172,6 @@ fun ServerChannelNav(
         ) {
             Box(
                 modifier = Modifier
-                    .padding(bottom = 10.dp)
                     .fillMaxWidth()
                     .requiredHeight(160.dp)
                     .background(Color(0x22000000)),
@@ -181,7 +180,8 @@ fun ServerChannelNav(
                 if (servers.get(currentServerId)?.banner != null)
                     AsyncImage(
                         model = RevoltApiModule.getResourceUrl(servers[currentServerId]!!.banner!!),
-                        contentDescription = "Server Banner"
+                        contentDescription = "Server Banner",
+                        contentScale = ContentScale.FillHeight
                     )
                 Text(
                     servers.get(currentServerId)?.name ?: "Direct Messages",
@@ -195,7 +195,7 @@ fun ServerChannelNav(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .scrollable(rememberScrollState(), Orientation.Vertical)
+                    .verticalScroll(rememberScrollState())
             ) {
                 servers.get(currentServerId)?.channelsIds?.forEach { channelId ->
                     val channel = channels[channelId]

@@ -30,7 +30,7 @@ private val DarkColorScheme = darkColorScheme(
 private val LightColorScheme = lightColorScheme(
     primary = EngineeringOrange,
     surface = Platinum,
-    secondaryContainer = Platinum,
+    secondaryContainer = Color(0xFFEEEEEE),
     onSecondaryContainer = Color.Black,
 
     background = Color(0xFFFFFBFE),
