@@ -1,10 +1,11 @@
-package io.github.alexispurslane.bloc.ui.models
+package io.github.alexispurslane.bloc.viewmodels
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.Either
+import io.github.alexispurslane.bloc.MainApplication
 import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
 import io.github.alexispurslane.bloc.data.RevoltChannelsRepository
 import io.github.alexispurslane.bloc.data.RevoltServersRepository
@@ -34,6 +35,7 @@ class HomeScreenViewModel @Inject constructor(
     private val revoltAccountRepository: RevoltAccountsRepository,
     private val revoltServersRepository: RevoltServersRepository,
     private val revoltChannelsRepository: RevoltChannelsRepository,
+    private val application: MainApplication
 ): ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -44,8 +46,9 @@ class HomeScreenViewModel @Inject constructor(
             revoltAccountRepository.userSessionFlow.collect { userSession ->
                 Log.d("USER HOME", userSession.toString())
                 if (userSession.instanceApiUrl != null) {
-                    if (userSession.sessionToken != null)
+                    if (userSession.sessionToken != null) {
                         initializeSession(userSession)
+                    }
                 }
             }
         }

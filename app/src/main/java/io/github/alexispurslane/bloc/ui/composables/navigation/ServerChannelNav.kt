@@ -23,16 +23,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,15 +58,16 @@ import java.util.Locale
 
 @Composable
 fun ServerChannelNav(
+    currentServerId: MutableState<String>,
+    currentChannelId: MutableState<String>,
     navController: NavHostController,
     servers: Map<String, RevoltServer>,
     channels: Map<String, RevoltChannel>,
     onNavigate: () -> Unit
 ) {
+    var currentServerId by currentServerId
+    var currentChannelId by currentChannelId
     val configuration = LocalConfiguration.current
-
-    var currentServer by remember { mutableStateOf("") }
-    var currentChannelId by remember { mutableStateOf("") }
 
     Row(
         verticalAlignment = Alignment.Top,
@@ -75,67 +77,91 @@ fun ServerChannelNav(
             modifier = Modifier
                 .width(64.dp)
                 .padding(horizontal = 5.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.Bottom
         ) {
-            OutlinedButton(
-                modifier = Modifier
-                    .aspectRatio(1.0F)
-                    .fillMaxWidth(),
-                shape = CircleShape,
-                contentPadding = PaddingValues(0.dp),
-                onClick = {
-                    currentServer = ""
-                    if (navController.currentDestination?.navigatorName != "profile") {
-                        navController.navigate("profile")
-                    }
-                    onNavigate()
-                }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Person,
-                    contentDescription = null
-                )
-            }
-            OutlinedButton(
-                modifier = Modifier
-                    .aspectRatio(1.0F)
-                    .fillMaxWidth(),
-                shape = if (currentServer == "@dms") MaterialTheme.shapes.large else CircleShape,
-                contentPadding = PaddingValues(0.dp),
-                onClick = {
-                    currentServer = "@dms"
-                }
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Home,
-                    contentDescription = null
-                )
-            }
-            servers.values.forEachIndexed { index, server ->
-                val shape =
-                    if (server.serverId == currentServer) MaterialTheme.shapes.large else CircleShape
-                val elevation =
-                    if (server.serverId == currentServer) ButtonDefaults.elevatedButtonElevation() else ButtonDefaults.buttonElevation()
-                Button(
+                OutlinedButton(
                     modifier = Modifier
                         .aspectRatio(1.0F)
                         .fillMaxWidth(),
-                    shape = shape,
+                    shape = CircleShape,
                     contentPadding = PaddingValues(0.dp),
                     onClick = {
-                        currentServer = server.serverId
-                    },
-                    elevation = elevation
+                        if (navController.currentDestination?.navigatorName != "profile") {
+                            navController.navigate("profile")
+                        }
+                        onNavigate()
+                    }
                 ) {
-                    if (server.icon != null)
-                        AsyncImage(
-                            modifier = Modifier.fillMaxSize(),
-                            model = RevoltApiModule.getResourceUrl(server.icon!!),
-                            contentDescription = "Server Icon"
-                        )
-                    else
-                        Text(server.name.take(2), fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = null
+                    )
                 }
+                OutlinedButton(
+                    modifier = Modifier
+                        .aspectRatio(1.0F)
+                        .fillMaxWidth(),
+                    shape = if (currentServerId == "@dms") MaterialTheme.shapes.large else CircleShape,
+                    contentPadding = PaddingValues(0.dp),
+                    onClick = {
+                        currentServerId = "@dms"
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Home,
+                        contentDescription = null
+                    )
+                }
+                servers.values.forEachIndexed { index, server ->
+                    val shape =
+                        if (server.serverId == currentServerId) MaterialTheme.shapes.large else CircleShape
+                    val elevation =
+                        if (server.serverId == currentServerId) ButtonDefaults.elevatedButtonElevation() else ButtonDefaults.buttonElevation()
+                    Button(
+                        modifier = Modifier
+                            .aspectRatio(1.0F)
+                            .fillMaxWidth(),
+                        shape = shape,
+                        contentPadding = PaddingValues(0.dp),
+                        onClick = {
+                            currentServerId = server.serverId
+                        },
+                        elevation = elevation
+                    ) {
+                        if (server.icon != null)
+                            AsyncImage(
+                                modifier = Modifier.fillMaxSize(),
+                                model = RevoltApiModule.getResourceUrl(server.icon!!),
+                                contentDescription = "Server Icon"
+                            )
+                        else
+                            Text(
+                                server.name.take(2),
+                                fontWeight = FontWeight.Black,
+                                textAlign = TextAlign.Center
+                            )
+                    }
+                }
+            }
+            IconButton(
+                modifier = Modifier
+                    .aspectRatio(1.0F)
+                    .fillMaxWidth(),
+                onClick = {
+                    if (navController.currentDestination?.navigatorName != "settings") {
+                        navController.navigate("settings")
+                        onNavigate()
+                    }
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = null
+                )
             }
         }
         Column(
@@ -152,17 +178,18 @@ fun ServerChannelNav(
                     .background(Color(0x22000000)),
                 contentAlignment = Alignment.BottomStart
             ) {
-                if (servers.get(currentServer)?.banner != null)
+                if (servers.get(currentServerId)?.banner != null)
                     AsyncImage(
-                        model = RevoltApiModule.getResourceUrl(servers[currentServer]!!.banner!!),
+                        model = RevoltApiModule.getResourceUrl(servers[currentServerId]!!.banner!!),
                         contentDescription = "Server Banner"
                     )
                 Text(
-                    servers.get(currentServer)?.name ?: "@dms",
+                    servers.get(currentServerId)?.name ?: "Direct Messages",
                     modifier = Modifier.padding(start = 10.dp),
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Start
+                    textAlign = TextAlign.Start,
+                    color = Color.White
                 )
             }
             Column(
@@ -170,10 +197,10 @@ fun ServerChannelNav(
                     .fillMaxSize()
                     .scrollable(rememberScrollState(), Orientation.Vertical)
             ) {
-                servers.get(currentServer)?.channelsIds?.forEach { channelId ->
+                servers.get(currentServerId)?.channelsIds?.forEach { channelId ->
                     val channel = channels[channelId]
                     val notInCategory =
-                        servers.get(currentServer)?.categories?.find {
+                        servers.get(currentServerId)?.categories?.find {
                             it.channelIds.contains(channelId)
                         } == null
                     if (channel != null && channel is RevoltChannel.TextChannel && notInCategory) {
@@ -185,7 +212,7 @@ fun ServerChannelNav(
                         }
                     }
                 }
-                servers.get(currentServer)?.categories?.forEach { category ->
+                servers.get(currentServerId)?.categories?.forEach { category ->
                     Text(
                         category.title.lowercase(Locale.getDefault()),
                         fontSize = 15.sp,
@@ -241,7 +268,8 @@ fun ChannelRow(channel: RevoltChannel, selected: Boolean, onClick: () -> Unit) {
                 contentDescription = "channel hashtag icon"
             )
         }
-        val textColor = if (selected) Color.LightGray else Color.Gray
+        val textColor =
+            if (selected) MaterialTheme.colorScheme.onSecondaryContainer else Color.Gray
         if (channel is RevoltChannel.TextChannel)
             Text(channel.name, fontWeight = FontWeight.Bold, textAlign = TextAlign.Start, fontSize = 20.sp, color = textColor,
                 maxLines = 1,

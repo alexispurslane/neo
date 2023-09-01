@@ -19,15 +19,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 
 enum class TrayState {
     DEFAULT,
@@ -72,7 +69,7 @@ fun ScrollableThreeDrawerScaffold(
                     onDrag = { change, delta ->
                         change.consume()
                         val new =
-                            middleOffset + (delta.x * 0.6).roundToInt().dp
+                            middleOffset + (delta.x * 0.6).dp
                         if ((new <= (configuration.screenWidthDp - traySize).dp && trayVisibilityState == TrayState.LEFT_OPEN) ||
                             (new >= -(configuration.screenWidthDp - traySize).dp && trayVisibilityState == TrayState.RIGHT_OPEN) ||
                             trayVisibilityState == TrayState.DEFAULT
@@ -120,10 +117,10 @@ fun ScrollableThreeDrawerScaffold(
                 .requiredWidth(configuration.screenWidthDp.dp - traySize.dp)
                 .align(Alignment.TopStart)
                 .safeDrawingPadding()
-                .alpha(if (trayVisibilityState == TrayState.LEFT_OPEN) 1f else 0f)
             ,
         ) {
-            left(reset)
+            if (trayVisibilityState == TrayState.LEFT_OPEN)
+                left(reset)
         }
         Box(
             modifier = Modifier
@@ -131,22 +128,22 @@ fun ScrollableThreeDrawerScaffold(
                 .requiredWidth(configuration.screenWidthDp.dp - traySize.dp)
                 .align(Alignment.TopEnd)
                 .safeDrawingPadding()
-                .alpha(if (trayVisibilityState == TrayState.RIGHT_OPEN) 1f else 0f)
         ) {
-            right(reset)
+            if (trayVisibilityState == TrayState.RIGHT_OPEN)
+                right(reset)
         }
         Box(
             modifier = Modifier
                 .offset(x = animatedOffset)
+                .shadow(3.dp)
                 .fillMaxHeight()
                 .requiredWidth(configuration.screenWidthDp.dp)
                 .clickable {
                     middleOffset = 0.dp
                 }
                 .clip(if (trayVisibilityState != TrayState.DEFAULT) MaterialTheme.shapes.small else RectangleShape)
-                .background(Color.Black)
+                .background(MaterialTheme.colorScheme.background)
                 .safeDrawingPadding()
-                .shadow(1.dp)
         ) {
             middle(reset)
         }

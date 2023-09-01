@@ -3,6 +3,7 @@ package io.github.alexispurslane.bloc.data.network
 import io.github.alexispurslane.bloc.data.network.models.LoginRequest
 import io.github.alexispurslane.bloc.data.network.models.LoginResponse
 import io.github.alexispurslane.bloc.data.network.models.QueryNodeResponse
+import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 import io.github.alexispurslane.bloc.data.network.models.RevoltMembersResponse
 import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
@@ -71,4 +72,17 @@ interface RevoltApiService {
         @Header("x-session-token") sessionToken: String,
         @Path("server_id") serverId: String
     ): Response<RevoltMembersResponse>
+
+    @GET("channels/{channel_id}/messages/{message_id}")
+    suspend fun fetchMessage(
+        @Header("x-session-token") sessionToken: String,
+        @Path("channel_id") channelId: String,
+        @Path("message_id") messageId: String
+    ): Response<RevoltMessage>
+
+    @GET("channels/{channel_id}")
+    suspend fun fetchChannel(
+        @Header("x-session-token") sessionToken: String,
+        @Path("channel_id") channelId: String,
+    ): Response<RevoltChannel>
 }

@@ -73,7 +73,7 @@ sealed class LoginResponse private constructor() {
 enum class RelationshipStatus(@JsonValue val status: String) {
     NONE("None"),
     USER("User"),
-    FRIEND("FRIEND"),
+    FRIEND("Friend"),
     OUTGOING("Outgoing"),
     INCOMING("Incoming"),
     BLOCKED("Blocked"),

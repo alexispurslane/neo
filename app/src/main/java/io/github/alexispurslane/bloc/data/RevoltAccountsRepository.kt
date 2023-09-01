@@ -9,13 +9,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
-import io.github.alexispurslane.bloc.data.network.WebSocketSubscriber
-import io.github.alexispurslane.bloc.data.network.models.LoginResponse
 import io.github.alexispurslane.bloc.data.network.models.LoginRequest
+import io.github.alexispurslane.bloc.data.network.models.LoginResponse
 import io.github.alexispurslane.bloc.data.network.models.QueryNodeResponse
-import io.github.alexispurslane.bloc.data.network.models.UserProfile
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
 import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
+import io.github.alexispurslane.bloc.data.network.models.UserProfile
 import io.github.alexispurslane.bloc.data.network.models.WebPushSubscriptionResponse
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -188,7 +187,7 @@ class RevoltAccountsRepository @Inject constructor(
     }
 }
 
-private object PreferenceKeys {
+object PreferenceKeys {
     val EMAIL = stringPreferencesKey("email")
     val INSTANCE_API_URL = stringPreferencesKey("instance_api_url")
     val WEBSOCKETS_URL = stringPreferencesKey("websockets_url")

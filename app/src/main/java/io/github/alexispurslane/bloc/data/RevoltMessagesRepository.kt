@@ -75,7 +75,7 @@ class RevoltMessagesRepository @Inject constructor(
             val errorBody = (res.errorBody() ?: res.errorBody())?.string()
             if (res.isSuccessful) {
                 if (_channelMessages.containsKey(channelId)) {
-                    if (nearby == null && includeUsers == null && sort != "Relevance") {
+                    if (nearby == null && includeUsers == null && sort != "Relevance" && body.isNotEmpty()) {
                         _channelMessages[channelId]!!.apply {
                             integrateMessages(this, body, before, after, sort)
                         }
@@ -133,13 +133,13 @@ class RevoltMessagesRepository @Inject constructor(
             if (before != null) {
                 val index =
                     findIndex { _, element -> element.messageId == before }
-                        ?: size
-                addAll(index, sortedNewMessages)
+                        ?: sortedNewMessages.size
+                addAll(index + 1, sortedNewMessages)
             } else if (after != null) {
                 val index =
                     findIndex { _, element -> element.messageId == after!! }
                         ?: 0
-                addAll(index + 1, sortedNewMessages)
+                addAll(index, sortedNewMessages)
             }
         }
     }

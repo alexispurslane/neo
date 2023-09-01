@@ -40,7 +40,7 @@ import io.github.alexispurslane.bloc.LoadingScreen
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
 import io.github.alexispurslane.bloc.data.network.models.Presence
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
-import io.github.alexispurslane.bloc.ui.models.UserProfileViewModel
+import io.github.alexispurslane.bloc.viewmodels.UserProfileViewModel
 
 
 @Composable
@@ -97,10 +97,21 @@ fun UserCard(
                     .padding(bottom = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("INFORMATION", fontSize = 15.sp, textAlign = TextAlign.Start, fontWeight = FontWeight.Black, color = Color.DarkGray, style = TextStyle(
-                    fontFeatureSettings = "smcp"
-                ))
-                Text(userProfile.profile?.content ?: "", fontSize = 15.sp, textAlign = TextAlign.Start)
+                Text(
+                    "information",
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Start,
+                    fontWeight = FontWeight.Black,
+                    color = Color.DarkGray,
+                    style = TextStyle(
+                        fontFeatureSettings = "smcp"
+                    )
+                )
+                Text(
+                    userProfile.profile?.content ?: "",
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Start
+                )
             }
         }
     }
@@ -129,15 +140,20 @@ fun UserRow(
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Start)
-            Text("@${userProfile.userName}#${userProfile.discriminator}",
-                fontSize = 10.sp,
+            Text(
+                "@${userProfile.userName}#${userProfile.discriminator}",
+                fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Start)
-            Text(userProfile.status?.customStatus ?: "",
-                fontSize = 10.sp,
+                textAlign = TextAlign.Start
+            )
+            Text(
+                userProfile.status?.customStatus ?: "",
+                fontSize = 15.sp,
+                style = TextStyle(lineHeight = 15.sp),
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Start,
-                color = Color.LightGray)
+                color = Color.LightGray
+            )
         }
     }
 }

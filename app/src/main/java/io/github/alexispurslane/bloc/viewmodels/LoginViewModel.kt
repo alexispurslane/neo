@@ -1,4 +1,4 @@
-package io.github.alexispurslane.bloc.ui.models
+package io.github.alexispurslane.bloc.viewmodels
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -80,12 +80,12 @@ class LoginViewModel @Inject constructor(
                         "Recovery" -> MFAResponse(
                             null,
                             null,
-                            recoveryCode = mfaResponse
+                            recoveryCode = mfaResponse.trim()
                         )
 
                         "Totp" -> MFAResponse(
                             null,
-                            totpCode = mfaResponse,
+                            totpCode = mfaResponse.trim(),
                             null
                         )
 

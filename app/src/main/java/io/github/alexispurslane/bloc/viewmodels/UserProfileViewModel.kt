@@ -1,4 +1,4 @@
-package io.github.alexispurslane.bloc.ui.models
+package io.github.alexispurslane.bloc.viewmodels
 
 import android.util.Log
 import androidx.lifecycle.ViewModel

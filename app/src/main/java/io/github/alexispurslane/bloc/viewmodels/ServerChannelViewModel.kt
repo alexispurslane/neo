@@ -1,6 +1,7 @@
-package io.github.alexispurslane.bloc.ui.models
+package io.github.alexispurslane.bloc.viewmodels
 
 import android.util.Log
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.SavedStateHandle
@@ -12,11 +13,13 @@ import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
 import io.github.alexispurslane.bloc.data.RevoltChannelsRepository
 import io.github.alexispurslane.bloc.data.RevoltMessagesRepository
 import io.github.alexispurslane.bloc.data.RevoltServersRepository
+import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
 import io.github.alexispurslane.bloc.data.network.models.RevoltServer
 import io.github.alexispurslane.bloc.data.network.models.RevoltServerMember
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
+import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,7 +35,9 @@ data class ServerChannelUiState(
     val users: Map<String, Pair<RevoltUser, RevoltServerMember>> = emptyMap(),
     val messages: SnapshotStateList<RevoltMessage> = mutableStateListOf(),
     val currentUserId: String? = null,
-    val error: String? = null
+    val error: String? = null,
+    val atBeginning: Boolean = false,
+    val newMessages: Boolean = false,
 )
 @HiltViewModel
 class ServerChannelViewModel @Inject constructor(
@@ -47,6 +52,7 @@ class ServerChannelViewModel @Inject constructor(
     val uiState: StateFlow<ServerChannelUiState> = _uiState.asStateFlow()
 
     private val regex by lazy { Regex("<@([a-zA-Z0-9]+)>") }
+    val messageListState = LazyListState()
 
     init {
         viewModelScope.launch {
@@ -71,6 +77,34 @@ class ServerChannelViewModel @Inject constructor(
                     }
                 }
         }
+
+        viewModelScope.launch {
+            RevoltWebSocketModule.eventFlow.collectLatest { event ->
+                when (event) {
+                    is RevoltWebSocketResponse.Message -> {
+                        if (event.message.channelId == uiState.value.channelId) {
+                            if (messageListState.firstVisibleItemIndex < 24) {
+                                messageListState.scrollToItem(0)
+                                _uiState.update {
+                                    it.copy(newMessages = false)
+                                }
+                            } else {
+                                _uiState.update {
+                                    it.copy(newMessages = true)
+                                }
+                            }
+                        }
+                    }
+
+                    else -> {}
+                }
+            }
+        }
+    }
+
+    suspend fun goToBottom() {
+        messageListState.scrollToItem(0)
+        _uiState.update { it.copy(newMessages = false) }
     }
 
     private suspend fun initializeChannelData(
@@ -112,17 +146,31 @@ class ServerChannelViewModel @Inject constructor(
             serverInfo = serverInfo,
             users = users,
             messages = (messages as Either.Success).value
-
         )
     }
 
     suspend fun fetchEarlierMessages() {
-        Log.d("CHANNEL VIEW", "Fetching earlier messages")
-        if (uiState.value.channelId != null)
+        val len = uiState.value.messages.size
+        Log.d(
+            "CHANNEL VIEW",
+            "Fetching earlier messages (current message count: $len)"
+        )
+        val last = uiState.value.messages.lastOrNull()
+        if (uiState.value.channelId != null && last != null) {
             revoltMessagesRepository.fetchChannelMessages(
                 uiState.value.channelId!!,
                 limit = 50,
-                before = uiState.value.messages.last().messageId
+                before = last.messageId
             )
+        }
+        val lenAfter = uiState.value.messages.size
+        if (lenAfter - len < 49) {
+            _uiState.update {
+                it.copy(
+                    atBeginning = true
+                )
+            }
+        }
+        Log.d("CHANNEL VIEW", "post-request message count: $len")
     }
 }

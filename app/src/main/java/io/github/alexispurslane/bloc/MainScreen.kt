@@ -9,12 +9,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,9 +24,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
-import io.github.alexispurslane.bloc.ui.composables.screens.LoginScreen
 import io.github.alexispurslane.bloc.ui.composables.screens.HomeScreen
-import kotlinx.coroutines.delay
+import io.github.alexispurslane.bloc.ui.composables.screens.LoginScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,41 +50,32 @@ fun MainScreen(
 @Preview
 @Composable
 fun LoadingScreen() {
-    var showLoading by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        delay(450)
-        showLoading = true
-    }
-
-    if (showLoading) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 50.dp),
-            contentAlignment = Alignment.Center
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 50.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    "Loading...",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 30.sp,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    Constants.LOADING_SCREEN_REMARKS.random(),
-                    fontWeight = FontWeight.Black,
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center
-                )
-                CircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = Color.LightGray,
-                )
-            }
+            Text(
+                "Loading...",
+                fontWeight = FontWeight.Black,
+                fontSize = 30.sp,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                Constants.LOADING_SCREEN_REMARKS.random(),
+                fontWeight = FontWeight.Black,
+                fontSize = 10.sp,
+                textAlign = TextAlign.Center
+            )
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = Color.LightGray,
+            )
         }
     }
 }
