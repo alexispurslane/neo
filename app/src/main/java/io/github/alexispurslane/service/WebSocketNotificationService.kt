@@ -248,7 +248,7 @@ class WebSocketNotificationService : Service() {
     ): Notification = coroutineScope {
         val pendingIntent = Intent(
             Intent.ACTION_VIEW,
-            "bloc://channel//${message.channelId}".toUri(),
+            "bloc://channel/${message.channelId}".toUri(),
             context,
             MainActivity::class.java
         ).let {
