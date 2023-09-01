@@ -6,8 +6,8 @@ import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.MainApplication
 import io.github.alexispurslane.service.Actions
+import io.github.alexispurslane.service.NotificationService
 import io.github.alexispurslane.service.ServiceState
-import io.github.alexispurslane.service.WebSocketNotificationService
 import io.github.alexispurslane.service.getServiceState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,7 +49,7 @@ class SettingsViewModel @Inject constructor(
         if (!value && getServiceState(application.applicationContext) == ServiceState.STOPPED) return
         Intent(
             application.applicationContext,
-            WebSocketNotificationService::class.java
+            NotificationService::class.java
         ).apply {
             action = if (value) Actions.START.name else Actions.STOP.name
             application.startForegroundService(this)

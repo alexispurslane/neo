@@ -43,8 +43,16 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name="io.github.alexispurslane.service.BootCompletedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <service
-            android:name="io.github.alexispurslane.service.WebSocketNotificationService"
+            android:name="io.github.alexispurslane.service.NotificationService"
             android:enabled="true"
             android:stopWithTask="false"
             android:exported="false" />

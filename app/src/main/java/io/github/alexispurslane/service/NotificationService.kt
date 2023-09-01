@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.IBinder
 import android.os.PowerManager
@@ -20,6 +21,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.graphics.drawable.IconCompat
+import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory
+import androidx.core.graphics.drawable.toBitmapOrNull
 import androidx.core.net.toUri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -32,8 +35,10 @@ import io.github.alexispurslane.bloc.SERVICE_CHANNEL_ID
 import io.github.alexispurslane.bloc.data.PreferenceKeys
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
+import io.github.alexispurslane.bloc.data.network.models.AutumnFile
 import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
+import io.github.alexispurslane.bloc.data.network.models.RevoltServer
 import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
 import io.github.alexispurslane.bloc.ui.theme.EngineeringOrange
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -57,16 +62,18 @@ enum class Actions {
 }
 
 @AndroidEntryPoint
-class WebSocketNotificationService : Service() {
+class NotificationService : Service() {
 
     private var listenJob: Job? = null
+
     @Inject
     lateinit var dataStore: DataStore<Preferences>
 
     private var wakeLock: PowerManager.WakeLock? = null
     private var isServiceStarted = false
 
-    private val notificationId = AtomicInteger(0)
+    // Starts at two because id 1 is taken by the persistent notification!
+    private val notificationId = AtomicInteger(2)
 
     private fun getNotificationId() = notificationId.incrementAndGet()
 
@@ -99,7 +106,7 @@ class WebSocketNotificationService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         val restartServiceIntent = Intent(
             applicationContext,
-            WebSocketNotificationService::class.java
+            NotificationService::class.java
         ).apply {
             setPackage(packageName)
         }
@@ -241,6 +248,42 @@ class WebSocketNotificationService : Service() {
     }
 
     private val people: MutableMap<String, Person> = mutableMapOf()
+    private suspend fun getChannelName(
+        sessionToken: String,
+        channel: RevoltChannel?
+    ): String? = coroutineScope {
+        when (channel) {
+            is RevoltChannel.TextChannel -> {
+                "#${channel.name}"
+            }
+
+            is RevoltChannel.Group -> {
+                "#${channel.name}"
+            }
+
+            is RevoltChannel.DirectMessage -> {
+                val usernames = channel.participantUserIds.map {
+                    async {
+                        val res = RevoltApiModule.service()
+                            .fetchUser(sessionToken, it)
+                        if (res.isSuccessful)
+                            res.body()!!.displayName
+                        else
+                            null
+                    }
+                }.awaitAll().filterNotNull().joinToString(", ")
+                "@$usernames"
+            }
+
+            else -> {
+                Log.e(
+                    "HAIRY MONKEYS",
+                    "Should never get a non-group, direct message, or text channel here."
+                ); null
+            }
+        }
+    }
+
     private suspend fun createMessageNotification(
         context: Context,
         sessionToken: String,
@@ -260,87 +303,32 @@ class WebSocketNotificationService : Service() {
             )
         }
 
-        val authorPerson = people.getOrPut(message.authorId) {
-            RevoltApiModule.service().fetchUser(sessionToken, message.authorId)
-                .let {
-                    if (it.isSuccessful) {
-                        val author = it.body()!!
-                        var personBuilder = Person.Builder()
-                            .setName("@${author.displayName}")
-                        author.avatar?.let { file ->
-                            RevoltApiModule.getResourceUrl(file)?.let { uri ->
-                                try {
-                                    val url = URL(uri)
-                                    with(url.openConnection() as HttpsURLConnection) {
-                                        requestMethod = "GET"
-                                        doInput = true
+        val authorPerson =
+            getPersonFromUserId(context, sessionToken, message.authorId)
 
-                                        val bitmap =
-                                            BitmapFactory.decodeStream(
-                                                inputStream
-                                            )
+        val (channel, server) = getChannelAndServer(
+            sessionToken,
+            message.channelId
+        )
+        val channelName = getChannelName(sessionToken, channel)
+        val serverName = server?.name
+        val serverBitmap =
+            server?.icon?.let { getBitmapFromAutumnFile(context, it) }
+        if (serverBitmap == null)
+            Log.d("NOTIF SERVICE", "Server bitmap is null somehow")
 
-                                        personBuilder = personBuilder
-                                            .setIcon(
-                                                IconCompat.createWithBitmap(
-                                                    bitmap
-                                                )
-                                            )
-                                    }
-                                } catch (e: Exception) {
-                                    Log.w(
-                                        "WEBSOCKET NOTIF SERVICE",
-                                        "Got error pulling user avatar: ${e.message}"
-                                    )
-                                }
-                            }
-                        }
-                        personBuilder.build()
-                    } else {
-                        Person.Builder().build()
-                    }
-                }
-        }
-        val channelName = RevoltApiModule.service()
-            .fetchChannel(sessionToken, message.channelId).let {
-            if (it.isSuccessful) {
-                when (val channel = it.body()!!) {
-                    is RevoltChannel.TextChannel -> {
-                        "#${channel.name}"
-                    }
-
-                    is RevoltChannel.DirectMessage -> {
-                        val usernames = channel.participantUserIds.map {
-                            async {
-                                val res = RevoltApiModule.service()
-                                    .fetchUser(sessionToken, it)
-                                if (res.isSuccessful)
-                                    res.body()!!.displayName
-                                else
-                                    null
-                            }
-                        }.awaitAll().filterNotNull().joinToString(", ")
-                        "@$usernames"
-                    }
-
-                    else -> {
-                        "Unknown Channel"
-                    }
-                }
-            } else {
-                "Unknown Channel"
-            }
-        }
         val builder = NotificationCompat.Builder(context, SERVER_CHANNEL_ID)
             .setSmallIcon(R.drawable.bloc_logo)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setColor(EngineeringOrange.toArgb())
+            .setGroup(server?.serverId)
+            .setLargeIcon(serverBitmap)
             .setStyle(
                 NotificationCompat.MessagingStyle("Me")
-                    .setGroupConversation(true)
-                    .setConversationTitle(channelName)
+                    .setGroupConversation(server != null)
+                    .setConversationTitle(if (serverName != null) "$channelName $serverName" else channelName)
                     .addMessage(
                         message.content,
                         System.currentTimeMillis(),
@@ -349,6 +337,97 @@ class WebSocketNotificationService : Service() {
             )
 
         builder.build()
+    }
+
+    private suspend fun getChannelAndServer(
+        sessionToken: String,
+        channelId: String
+    ): Pair<RevoltChannel?, RevoltServer?> = coroutineScope {
+        val channel =
+            RevoltApiModule.service().fetchChannel(sessionToken, channelId)
+                .let {
+                    if (!it.isSuccessful)
+                        return@coroutineScope Pair(null, null)
+                    else
+                        it.body()!!
+                }
+        when (channel) {
+            is RevoltChannel.TextChannel -> {
+                RevoltApiModule.service()
+                    .fetchServer(sessionToken, channel.serverId).let {
+                    return@coroutineScope if (!it.isSuccessful)
+                        Pair(channel, null)
+                    else
+                        Pair(channel, it.body()!!)
+                }
+            }
+
+            is RevoltChannel.DirectMessage -> {
+                Pair(channel, null)
+            }
+
+            else -> {
+                Pair(null, null)
+            }
+        }
+    }
+
+    private suspend fun getPersonFromUserId(
+        context: Context,
+        sessionToken: String,
+        authorId: String
+    ): Person {
+        return people.getOrPut(authorId) {
+            RevoltApiModule.service().fetchUser(sessionToken, authorId)
+                .let {
+                    if (it.isSuccessful) {
+                        val author = it.body()!!
+                        var personBuilder = Person.Builder()
+                            .setBot(author.botInformation != null)
+                            .setName("@${author.displayName}")
+                            .setKey(authorId)
+                        author.avatar?.let { file ->
+                            getBitmapFromAutumnFile(context, file)?.let {
+                                personBuilder = personBuilder.setIcon(
+                                    IconCompat.createWithBitmap(it)
+                                )
+                            }
+                        }
+                        personBuilder.build()
+                    } else {
+                        Person.Builder().build()
+                    }
+                }
+        }
+    }
+
+    private fun getBitmapFromAutumnFile(
+        context: Context,
+        file: AutumnFile
+    ): Bitmap? {
+        val uri = RevoltApiModule.getResourceUrl(file) ?: return null
+        return try {
+            val url = URL(uri)
+            with(url.openConnection() as HttpsURLConnection) {
+                requestMethod = "GET"
+                doInput = true
+
+                RoundedBitmapDrawableFactory.create(
+                    context.resources,
+                    BitmapFactory.decodeStream(inputStream)
+                ).apply {
+                    isCircular = true
+                }.toBitmapOrNull()?.let {
+                    it
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(
+                "WEBSOCKET NOTIF SERVICE",
+                "Got error pulling user avatar: ${e.message}"
+            )
+            null
+        }
     }
 
     private fun createServiceNotification(): Notification {
