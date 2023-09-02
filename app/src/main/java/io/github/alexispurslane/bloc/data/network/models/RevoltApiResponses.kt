@@ -1,6 +1,7 @@
 package io.github.alexispurslane.bloc.data.network.models
 
 import androidx.annotation.Keep
+import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonSubTypes.Type
@@ -90,6 +91,7 @@ enum class Presence(@JsonValue val presence: String) {
 
 
 data class RevoltUser(
+    @param:JsonAlias("id")
     @param:JsonProperty("_id") val userId: String,
     @param:JsonProperty("username") val userName: String,
     @param:JsonProperty("discriminator") val discriminator: String,
@@ -343,6 +345,15 @@ data class RevoltMessage(
     @param:JsonProperty("reactions") val reactions: Map<String, String>?,
     @param:JsonProperty("interactions") val interactions: InteractionsGuide?,
     @param:JsonProperty("masquerade") val masquerade: Masquerade?,
+)
+
+data class RevoltMessageSent(
+    @param:JsonProperty("content") val content: String?,
+    @param:JsonProperty("attachments") val attachments: List<AutumnFile>?,
+    @param:JsonProperty("replies") val replyIds: List<String>?,
+    @param:JsonProperty("embeds") val embeds: List<JsonNode>?,
+    @param:JsonProperty("masquerade") val masquerade: Masquerade?,
+    @param:JsonProperty("interactions") val interactions: InteractionsGuide?,
 )
 
 

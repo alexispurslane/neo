@@ -16,10 +16,12 @@ import io.github.alexispurslane.bloc.data.RevoltServersRepository
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
+import io.github.alexispurslane.bloc.data.network.models.RevoltMessageSent
 import io.github.alexispurslane.bloc.data.network.models.RevoltServer
 import io.github.alexispurslane.bloc.data.network.models.RevoltServerMember
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
 import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +40,10 @@ data class ServerChannelUiState(
     val error: String? = null,
     val atBeginning: Boolean = false,
     val newMessages: Boolean = false,
+    val draftMessage: String = "",
+    val isSendError: Boolean = false,
+    val sendErrorTitle: String = "",
+    val sendErrorText: String = "",
 )
 @HiltViewModel
 class ServerChannelViewModel @Inject constructor(
@@ -97,6 +103,53 @@ class ServerChannelViewModel @Inject constructor(
                     }
 
                     else -> {}
+                }
+            }
+        }
+    }
+
+    fun updateMessage(new: String) {
+        _uiState.update {
+            it.copy(draftMessage = new)
+        }
+    }
+
+    fun sendMessage() {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (uiState.value.channelId != null) {
+                val content = uiState.value.draftMessage
+                val message = RevoltMessageSent(
+                    content = content,
+                    attachments = null,
+                    replyIds = null,
+                    embeds = null,
+                    masquerade = null,
+                    interactions = null
+                )
+                val res = revoltMessagesRepository.sendMessage(
+                    uiState.value.channelId!!,
+                    message
+                )
+                when (res) {
+                    is Either.Success -> {
+                        Log.d("CHANNEL VIEW", "Sent message: ${res.value}")
+                        _uiState.update {
+                            it.copy(
+                                draftMessage = ""
+                            )
+                        }
+                    }
+
+                    is Either.Error -> {
+                        val split = res.value.split(':')
+                        _uiState.update {
+                            it.copy(
+                                isSendError = true,
+                                sendErrorTitle = split[0],
+                                sendErrorText = split[1]
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -172,5 +225,13 @@ class ServerChannelViewModel @Inject constructor(
             }
         }
         Log.d("CHANNEL VIEW", "post-request message count: $len")
+    }
+
+    fun onDialogDismiss() {
+        _uiState.update {
+            it.copy(
+                isSendError = false
+            )
+        }
     }
 }

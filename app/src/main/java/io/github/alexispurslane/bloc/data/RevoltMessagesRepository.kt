@@ -6,6 +6,7 @@ import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
+import io.github.alexispurslane.bloc.data.network.models.RevoltMessageSent
 import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
 import io.github.alexispurslane.bloc.findIndex
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -41,6 +42,47 @@ class RevoltMessagesRepository @Inject constructor(
                     else -> {}
                 }
             }
+        }
+    }
+
+    suspend fun sendMessage(
+        channelId: String,
+        message: RevoltMessageSent
+    ): Either<RevoltMessage, String> {
+        val userSession = revoltAccountsRepository.userSessionFlow.first()
+        if (userSession.sessionToken == null) {
+            return Either.Error(
+                "Uh oh! Your user session token is null:You'll have to sign out and sign back in again."
+            )
+        }
+        return try {
+            val res = RevoltApiModule.service().sendMessage(
+                sessionToken = userSession.sessionToken,
+                channelId = channelId,
+                message = message
+            )
+            val body = res.body()!!
+            val errorBody = (res.errorBody() ?: res.errorBody())?.string()
+            if (res.isSuccessful) {
+                Either.Success(body)
+            } else if (errorBody != null) {
+                val jsonObject = JSONObject(errorBody.trim())
+                Either.Error(
+                    "Uh oh! ${res.message()}:The server error was '${
+                        jsonObject.getString(
+                            "type"
+                        )
+                    }'"
+                )
+            } else {
+                Either.Error(
+                    "Uh oh! The server returned an error:${res.message()}"
+                )
+            }
+        } catch (e: Exception) {
+            Either.Error(
+                "Uh oh! Was unable to send a message to the server: ${e.message}"
+            )
         }
     }
 

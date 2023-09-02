@@ -12,6 +12,9 @@
 #   public *;
 #}
 
+-dontshrink
+-dontobfuscate
+
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
 -keepattributes SourceFile,LineNumberTable
@@ -25,7 +28,7 @@
 -keep class kotlin.reflect.jvm.internal.** { *; }
 -keep interface javax.annotation.Nullable
 
--keepattributes Signature,RuntimeVisibleAnnotations,AnnotationDefault
+-keepattributes InnerClasses,Signature,RuntimeVisibleAnnotations,AnnotationDefault,RuntimeVisibleParameterAnnotations
 -keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
 -dontwarn okhttp3.**
 -dontwarn okio.**
@@ -34,7 +37,20 @@
     @retrofit2.http.* <methods>;
 }
 -keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep,allowobfuscation,allowshrinking class io.github.alexispurslane.bloc.data.SinglePolyUnwrappedDeserializer { *; }
+-keep,allowobfuscation,allowshrinking class io.github.alexispurslane.bloc.data.SinglePolyUnwrappedDeserializer$* { *; }
 
 -keep class kotlin.Metadata { *; }
 -keep class kotlin.reflect.** { *; }
--keep class io.github.alexispurslane.bloc.data.network.models.* { *; }
+-keep class io.github.alexispurslane.bloc.data.network.models.** { *; }
+-keep class io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketRequest$* { *; }
+-keep class io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse$* { *; }
+
+-keepclassmembers class * {
+    @com.fasterxml.jackson.* *;
+}
+
+-dontwarn com.fasterxml.jackson.databind.**
+
+-keep class * implements java.io.Serializable
+-keep interface com.fasterxml.jackson.**

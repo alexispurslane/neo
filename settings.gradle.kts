@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Bloc"
 include(":app")
+include(":benchmark")

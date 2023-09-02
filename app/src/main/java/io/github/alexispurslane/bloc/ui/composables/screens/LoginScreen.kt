@@ -121,7 +121,7 @@ fun LoginScreen(
     }
 
     if (uiState.isLoginError) {
-        LoginErrorDialog(
+        ErrorDialog(
             loginViewModel::onLoginErrorDismiss,
             uiState.loginErrorTitle,
             uiState.loginErrorBody
@@ -131,12 +131,12 @@ fun LoginScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginErrorDialog(
-    onLoginErrorDismiss: () -> Unit,
-    loginErrorTitle: String,
-    loginErrorBody: String
+fun ErrorDialog(
+    onDismiss: () -> Unit,
+    title: String,
+    body: String
 ) {
-    AlertDialog(onDismissRequest = onLoginErrorDismiss) {
+    AlertDialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier
                 .wrapContentWidth()
@@ -153,14 +153,14 @@ fun LoginErrorDialog(
                     imageVector = Icons.Filled.Warning,
                     contentDescription = "Login Error Dialog"
                 )
-                Text(loginErrorTitle, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(title, fontWeight = FontWeight.Bold, fontSize = 20.sp)
                 Spacer(modifier = Modifier.height(24.dp))
                 Text(
-                    text = loginErrorBody,
+                    text = body,
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 TextButton(
-                    onClick = onLoginErrorDismiss,
+                    onClick = onDismiss,
                     modifier = Modifier.align(Alignment.End)
                 ) {
                     Text("Groovy!")

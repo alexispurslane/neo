@@ -67,9 +67,21 @@ fun ChannelViewScreen(
                             channelInfo
                         )
                     }
+                    if (uiState.isSendError) {
+                        ErrorDialog(
+                            channelViewModel::onDialogDismiss,
+                            uiState.sendErrorTitle,
+                            uiState.sendErrorText
+                        )
+                    }
                 },
                 bottomBar = {
-                    MessageBar(channelInfo.name)
+                    MessageBar(
+                        channelInfo.name,
+                        uiState.draftMessage,
+                        channelViewModel::updateMessage,
+                        channelViewModel::sendMessage
+                    )
                 }
             )
         }

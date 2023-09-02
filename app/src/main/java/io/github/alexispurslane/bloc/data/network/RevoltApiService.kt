@@ -6,6 +6,7 @@ import io.github.alexispurslane.bloc.data.network.models.QueryNodeResponse
 import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 import io.github.alexispurslane.bloc.data.network.models.RevoltMembersResponse
 import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
+import io.github.alexispurslane.bloc.data.network.models.RevoltMessageSent
 import io.github.alexispurslane.bloc.data.network.models.RevoltServer
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
 import io.github.alexispurslane.bloc.data.network.models.UserProfile
@@ -18,6 +19,7 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Url
+import java.util.UUID
 
 interface RevoltApiService {
     @GET
@@ -92,4 +94,17 @@ interface RevoltApiService {
         @Header("x-session-token") sessionToken: String,
         @Path("server_id") serverId: String
     ): Response<RevoltServer>
+
+    @POST("channels/{channel_id}/messages")
+    @Headers(
+        "Accept: application/json",
+        "Content-type: application/json",
+    )
+    suspend fun sendMessage(
+        @Header("x-session-token") sessionToken: String,
+        @Header("Idempotency-Key") idempotency: String = UUID.randomUUID()
+            .toString().take(64),
+        @Path("channel_id") channelId: String,
+        @Body message: RevoltMessageSent
+    ): Response<RevoltMessage>
 }

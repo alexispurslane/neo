@@ -181,7 +181,7 @@ class LoginViewModel @Inject constructor(
             }
         } catch (e: Exception) {
             Log.d("QUERY NODE ERROR", e.toString())
-            throw e
+            Pair(false, "Uh oh! Looks like you input an invalid API URL")
         }
     }
 

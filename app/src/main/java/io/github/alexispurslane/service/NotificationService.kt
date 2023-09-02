@@ -177,6 +177,7 @@ class NotificationService : Service() {
                 val apiUrl = preferences[PreferenceKeys.INSTANCE_API_URL]
                 val sessionToken = preferences[PreferenceKeys.SESSION_TOKEN]
                 val websocketUrl = preferences[PreferenceKeys.WEBSOCKETS_URL]
+                val userId = preferences[PreferenceKeys.USER_ID]
                 if (apiUrl != null && sessionToken != null && websocketUrl != null) {
                     RevoltApiModule.setBaseUrl(apiUrl)
                     RevoltWebSocketModule.setWebSocketUrlAndToken(
@@ -197,16 +198,18 @@ class NotificationService : Service() {
                                             Manifest.permission.POST_NOTIFICATIONS
                                         ) == PackageManager.PERMISSION_GRANTED
                                     ) {
-                                        val notification =
-                                            createMessageNotification(
-                                                context,
-                                                sessionToken,
-                                                event.message
+                                        if (event.message.authorId != userId) {
+                                            val notification =
+                                                createMessageNotification(
+                                                    context,
+                                                    sessionToken,
+                                                    event.message
+                                                )
+                                            notify(
+                                                getNotificationId(),
+                                                notification
                                             )
-                                        notify(
-                                            getNotificationId(),
-                                            notification
-                                        )
+                                        }
                                     }
                                 }
                             }

@@ -34,6 +34,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -44,6 +45,11 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             isDebuggable = true
+        }
+        create("benchmark") {
+            initWith(buildTypes.getByName("release"))
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
         }
     }
     compileOptions {
@@ -110,7 +116,12 @@ dependencies {
 
     implementation("io.coil-kt:coil:2.4.0")
     implementation("io.coil-kt:coil-compose:2.4.0")
+
     implementation("androidx.work:work-multiprocess:2.8.1")
+
+    implementation("androidx.profileinstaller:profileinstaller:1.3.1")
+    implementation("androidx.benchmark:benchmark-macro-junit4:1.1.1")
+
     kapt("com.google.dagger:hilt-android-compiler:2.44")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

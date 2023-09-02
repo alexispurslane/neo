@@ -56,6 +56,10 @@
             android:enabled="true"
             android:stopWithTask="false"
             android:exported="false" />
+
+        <!--suppress AndroidElementNotAllowed -->
+        <profileable android:shell="true" />
+
     </application>
 
 </manifest>

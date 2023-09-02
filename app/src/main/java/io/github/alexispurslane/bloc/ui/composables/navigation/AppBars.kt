@@ -42,6 +42,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,7 +56,12 @@ import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 
 @Preview
 @Composable
-fun MessageBar(channelName: String = "") {
+fun MessageBar(
+    channelName: String = "",
+    value: String = "",
+    onValueChange: (String) -> Unit = {},
+    onSubmit: () -> Unit = {}
+) {
     BottomAppBar(
         containerColor = MaterialTheme.colorScheme.background,
     ) {
@@ -75,8 +83,19 @@ fun MessageBar(channelName: String = "") {
                 placeholder = {
                     Text("Message $channelName...")
                 },
-                value = "",
-                onValueChange = {}
+                value = value,
+                onValueChange = onValueChange,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
+                    autoCorrect = true,
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Send
+                ),
+                keyboardActions = KeyboardActions(
+                    onSend = {
+                        onSubmit()
+                    }
+                )
             )
             IconButton(
                 onClick = { /*TODO*/ }) {
@@ -86,7 +105,7 @@ fun MessageBar(channelName: String = "") {
                 )
             }
             IconButton(
-                onClick = { /*TODO*/ }
+                onClick = onSubmit
             ) {
                 Icon(
                     imageVector = Icons.Filled.Send,
