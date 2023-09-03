@@ -41,6 +41,17 @@
                     android:scheme="bloc"
                     android:host="channel" />
             </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.APP_MESSAGING" />
+
+                <data
+                    android:scheme="bloc"
+                    android:host="profile" />
+            </intent-filter>
         </activity>
 
         <receiver

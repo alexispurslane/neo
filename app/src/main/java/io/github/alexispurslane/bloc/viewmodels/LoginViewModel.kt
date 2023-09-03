@@ -35,8 +35,9 @@ data class LoginUiState(
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val revoltAccountRepository: RevoltAccountsRepository,
-): ViewModel() {
+) : ViewModel() {
     private var websocketUrl: String? = null
+    private var autumnUrl: String? = null
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
@@ -45,8 +46,10 @@ class LoginViewModel @Inject constructor(
             val userSession = revoltAccountRepository.userSessionFlow.first()
             _uiState.update { prevState ->
                 prevState.copy(
-                    instanceApiUrl = if (prevState.instanceApiUrl.isEmpty()) userSession.instanceApiUrl ?: "" else prevState.instanceApiUrl,
-                    instanceEmailAddress = if (prevState.instanceEmailAddress.isEmpty()) userSession.emailAddress ?: "" else prevState.instanceEmailAddress,
+                    instanceApiUrl = if (prevState.instanceApiUrl.isEmpty()) userSession.instanceApiUrl
+                        ?: "" else prevState.instanceApiUrl,
+                    instanceEmailAddress = if (prevState.instanceEmailAddress.isEmpty()) userSession.emailAddress
+                        ?: "" else prevState.instanceEmailAddress,
                 )
             }
         }
@@ -62,12 +65,17 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    fun onMultiFactorLoginConfirm(mfaMethod: String, mfaResponse: String, setLoggedIn: (Boolean) -> Unit) {
+    fun onMultiFactorLoginConfirm(
+        mfaMethod: String,
+        mfaResponse: String,
+        setLoggedIn: (Boolean) -> Unit
+    ) {
         viewModelScope.launch {
             val loginResponse = revoltAccountRepository.login(
                 uiState.value.instanceApiUrl,
                 uiState.value.instanceEmailAddress,
                 websocketUrl!!,
+                autumnUrl!!,
                 LoginRequest.MFA(
                     mfaTicket = uiState.value.mfaTicket,
                     mfaResponse = when (mfaMethod) {
@@ -112,6 +120,7 @@ class LoginViewModel @Inject constructor(
                     uiState.value.instanceApiUrl,
                     uiState.value.instanceEmailAddress,
                     websocketUrl!!,
+                    autumnUrl!!,
                     LoginRequest.Basic(
                         email = uiState.value.instanceEmailAddress,
                         password = uiState.value.instancePassword,
@@ -123,7 +132,10 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    private fun handleLoginResponse(loginResponse: Either<LoginResponse, String>, setLoggedIn: (Boolean) -> Unit) {
+    private fun handleLoginResponse(
+        loginResponse: Either<LoginResponse, String>,
+        setLoggedIn: (Boolean) -> Unit
+    ) {
         _uiState.update { prevState ->
             when (loginResponse) {
                 is Either.Success -> {
@@ -133,6 +145,7 @@ class LoginViewModel @Inject constructor(
                             setLoggedIn(true)
                             prevState
                         }
+
                         is LoginResponse.MFA -> {
                             prevState.copy(
                                 mfa = true,
@@ -140,6 +153,7 @@ class LoginViewModel @Inject constructor(
                                 mfaTicket = loginResponse.value.ticket
                             )
                         }
+
                         is LoginResponse.Disabled -> {
                             prevState.copy(
                                 isLoginError = true,
@@ -149,6 +163,7 @@ class LoginViewModel @Inject constructor(
                         }
                     }
                 }
+
                 is Either.Error -> {
                     val (errorTitle, errorBody) = loginResponse.value.split(':')
                     prevState.copy(
@@ -175,7 +190,12 @@ class LoginViewModel @Inject constructor(
             val res = revoltAccountRepository.queryNode(instanceApiUrl)
             if (res.isSuccessful && res.body() != null) {
                 websocketUrl = res.body()!!.ws
-                Pair(true, "That looks like a Revolt v${res.body()!!.revolt} instance!")
+                autumnUrl =
+                    res.body()!!.features.get("autumn").get("url").textValue()
+                Pair(
+                    true,
+                    "That looks like a Revolt v${res.body()!!.revolt} instance!"
+                )
             } else {
                 Pair(false, "Uh oh! Got status code: ${res.message()}")
             }
@@ -194,6 +214,7 @@ class LoginViewModel @Inject constructor(
             )
         }
     }
+
     fun testApiUrl() {
         viewModelScope.launch {
             testApiUrlSuspend()

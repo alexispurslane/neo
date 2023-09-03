@@ -10,6 +10,7 @@ import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
 import io.github.alexispurslane.bloc.data.RevoltChannelsRepository
 import io.github.alexispurslane.bloc.data.RevoltServersRepository
 import io.github.alexispurslane.bloc.data.UserSession
+import io.github.alexispurslane.bloc.data.local.RevoltAutumnModule
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
@@ -28,15 +29,20 @@ import javax.inject.Inject
 data class HomeUiState(
     val userInfo: RevoltUser? = null,
     val servers: Map<String, RevoltServer> = emptyMap(),
-    val channels: Map<String, RevoltChannel> = emptyMap()
+    val channels: Map<String, RevoltChannel> = emptyMap(),
+    val autumnUrl: String? = null,
+    val lastServer: String? = null,
+    val lastChannel: String? = null,
+    val lastServerChannels: Map<String, String> = emptyMap()
 )
+
 @HiltViewModel
 class HomeScreenViewModel @Inject constructor(
     private val revoltAccountRepository: RevoltAccountsRepository,
     private val revoltServersRepository: RevoltServersRepository,
     private val revoltChannelsRepository: RevoltChannelsRepository,
     private val application: MainApplication
-): ViewModel() {
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -75,23 +81,35 @@ class HomeScreenViewModel @Inject constructor(
     }
 
     @OptIn(DelicateCoroutinesApi::class)
-    private suspend fun initializeWebSockets(userSession: UserSession) = coroutineScope {
-        if (RevoltWebSocketModule.setWebSocketUrlAndToken(userSession.websocketsUrl!!, userSession.sessionToken!!)) {
-            // Initialize service (it's lazily created)
-            RevoltWebSocketModule.service()
+    private suspend fun initializeWebSockets(userSession: UserSession) =
+        coroutineScope {
+            if (RevoltWebSocketModule.setWebSocketUrlAndToken(
+                    userSession.websocketsUrl!!,
+                    userSession.sessionToken!!
+                )
+            ) {
+                // Initialize service (it's lazily created)
+                RevoltWebSocketModule.service()
+            }
         }
-    }
+
     private suspend fun initializeSession(userSession: UserSession) {
+        RevoltAutumnModule.setUrl(userSession.autumnUrl!!)
         RevoltApiModule.setBaseUrl(userSession.instanceApiUrl!!)
         when (val userInfo =
             revoltAccountRepository.fetchUserInformation()) {
             is Either.Success -> {
-                Log.d(
-                    "USER HOME",
-                    "Successful fetch user info: ${userInfo.value.toString()}"
-                )
                 _uiState.update {
-                    it.copy(userInfo = userInfo.value)
+                    val lastServer = userSession.preferences["last_server"]
+                    val lastChannel =
+                        lastServer?.let { userSession.preferences[it] }
+                    it.copy(
+                        userInfo = userInfo.value,
+                        autumnUrl = userSession.autumnUrl,
+                        lastServer = it.lastServer ?: lastServer,
+                        lastChannel = it.lastChannel ?: lastChannel,
+                        lastServerChannels = userSession.preferences
+                    )
                 }
             }
 
@@ -104,12 +122,22 @@ class HomeScreenViewModel @Inject constructor(
         }
 
         initializeWebSockets(userSession)
-
     }
 
     fun logout() {
         viewModelScope.launch {
             revoltAccountRepository.clearSession()
+        }
+    }
+
+    fun saveLast(currentServerId: String, currentChannelId: String) {
+        viewModelScope.launch {
+            revoltAccountRepository.savePreferences(
+                mapOf(
+                    "last_server" to currentServerId,
+                    currentServerId to currentChannelId
+                )
+            )
         }
     }
 }

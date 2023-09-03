@@ -116,8 +116,7 @@ fun ScrollableThreeDrawerScaffold(
                 .fillMaxHeight()
                 .requiredWidth(configuration.screenWidthDp.dp - traySize.dp)
                 .align(Alignment.TopStart)
-                .safeDrawingPadding()
-            ,
+                .safeDrawingPadding(),
         ) {
             if (trayVisibilityState == TrayState.LEFT_OPEN)
                 left(reset)

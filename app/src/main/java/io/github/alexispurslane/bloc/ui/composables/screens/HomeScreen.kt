@@ -15,9 +15,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -80,32 +78,58 @@ fun HomeScreen(
 ) {
     val navController = rememberNavController()
     val uiState by homeScreenViewModel.uiState.collectAsState()
-    val currentServerId = rememberSaveable { mutableStateOf("") }
-    val currentChannelId = rememberSaveable { mutableStateOf("") }
 
     ScrollableThreeDrawerScaffold(
-        left = {
+        left = { reset ->
             ServerChannelNav(
-                currentServerId = currentServerId,
-                currentChannelId = currentChannelId,
-                navController = navController,
                 servers = uiState.servers,
                 channels = uiState.channels,
-                onNavigate = it
+                startingServerId = uiState.lastServer ?: "",
+                onNavigate = { type, serverId, channelId ->
+                    when (type) {
+                        "settings" -> navController.navigate("settings")
+                        "profile" -> navController.navigate("profile/${uiState.userInfo?.userId ?: "@me"}")
+                        "channel" -> {
+                            homeScreenViewModel.saveLast(
+                                serverId,
+                                channelId
+                            )
+                            navController.navigate("channel/${channelId}")
+                        }
+
+                        else -> {}
+                    }
+                    reset()
+                },
+                lastServerChannels = uiState.lastServerChannels,
+                userProfileIcon = uiState.userInfo?.avatar
             )
         },
         middle = {
             NavHost(navController, startDestination = "loading") {
                 composable("loading") {
-                    val loadedUserInfo by remember { derivedStateOf { uiState.userInfo != null } }
+                    val loadedUserInfo by remember { derivedStateOf { uiState.userInfo != null && uiState.servers.isNotEmpty() } }
                     LaunchedEffect(loadedUserInfo) {
-                        if (loadedUserInfo)
-                            navController.navigate("welcome")
+                        if (loadedUserInfo) {
+                            navController.navigate(
+                                if (uiState.lastServer != null && uiState.lastChannel != null)
+                                    "channel/${uiState.lastChannel}"
+                                else
+                                    "welcome"
+                            )
+                        }
                     }
                     LoadingScreen()
                 }
                 composable("welcome") { WelcomeScreen(setLoggedIn = setLoggedIn) }
-                composable("profile") { UserProfileScreen(navController) }
+                composable(
+                    "profile/{userId}",
+                    deepLinks = listOf(navDeepLink {
+                        uriPattern = "bloc://profile/{userId}"
+                    })
+                ) {
+                    UserProfileScreen(navController)
+                }
                 composable(
                     "channel/{channelId}",
                     deepLinks = listOf(navDeepLink {
@@ -114,7 +138,7 @@ fun HomeScreen(
                 ) {
                     // channelId argument automatically passed to
                     // ServerChannelViewModel by SavedStateHandle!
-                    ChannelViewScreen()
+                    ChannelViewScreen(navController)
                 }
                 composable("settings") { SettingsScreen() }
             }

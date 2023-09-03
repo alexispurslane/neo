@@ -45,6 +45,7 @@ data class ServerChannelUiState(
     val sendErrorTitle: String = "",
     val sendErrorText: String = "",
 )
+
 @HiltViewModel
 class ServerChannelViewModel @Inject constructor(
     private val revoltAccountsRepository: RevoltAccountsRepository,
@@ -52,12 +53,11 @@ class ServerChannelViewModel @Inject constructor(
     private val revoltChannelsRepository: RevoltChannelsRepository,
     private val revoltMessagesRepository: RevoltMessagesRepository,
     private val savedStateHandle: SavedStateHandle
-): ViewModel() {
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServerChannelUiState())
     val uiState: StateFlow<ServerChannelUiState> = _uiState.asStateFlow()
 
-    private val regex by lazy { Regex("<@([a-zA-Z0-9]+)>") }
     val messageListState = LazyListState()
 
     init {
@@ -116,7 +116,7 @@ class ServerChannelViewModel @Inject constructor(
 
     fun sendMessage() {
         viewModelScope.launch(Dispatchers.IO) {
-            if (uiState.value.channelId != null) {
+            if (uiState.value.channelId != null && uiState.value.draftMessage.isNotBlank()) {
                 val content = uiState.value.draftMessage
                 val message = RevoltMessageSent(
                     content = content,
@@ -230,7 +230,8 @@ class ServerChannelViewModel @Inject constructor(
     fun onDialogDismiss() {
         _uiState.update {
             it.copy(
-                isSendError = false
+                isSendError = false,
+                error = null
             )
         }
     }

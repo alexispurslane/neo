@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -66,6 +67,9 @@ class NotificationService : Service() {
 
     private var listenJob: Job? = null
 
+    private var conversationNotifications: MutableMap<String, Int> =
+        mutableMapOf()
+
     @Inject
     lateinit var dataStore: DataStore<Preferences>
 
@@ -75,7 +79,7 @@ class NotificationService : Service() {
     // Starts at two because id 1 is taken by the persistent notification!
     private val notificationId = AtomicInteger(2)
 
-    private fun getNotificationId() = notificationId.incrementAndGet()
+    private fun getNextNotificationId() = notificationId.incrementAndGet()
 
     override fun onBind(intent: Intent?): IBinder? {
         Log.w(
@@ -178,6 +182,7 @@ class NotificationService : Service() {
                 val sessionToken = preferences[PreferenceKeys.SESSION_TOKEN]
                 val websocketUrl = preferences[PreferenceKeys.WEBSOCKETS_URL]
                 val userId = preferences[PreferenceKeys.USER_ID]
+                val autumnUrl = preferences[PreferenceKeys.AUTUMN_URL]
                 if (apiUrl != null && sessionToken != null && websocketUrl != null) {
                     RevoltApiModule.setBaseUrl(apiUrl)
                     RevoltWebSocketModule.setWebSocketUrlAndToken(
@@ -198,17 +203,22 @@ class NotificationService : Service() {
                                             Manifest.permission.POST_NOTIFICATIONS
                                         ) == PackageManager.PERMISSION_GRANTED
                                     ) {
-                                        if (event.message.authorId != userId) {
+                                        val isDebuggable =
+                                            0 != applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE
+                                        if (event.message.authorId != userId || isDebuggable) {
                                             val notification =
                                                 createMessageNotification(
                                                     context,
                                                     sessionToken,
+                                                    autumnUrl,
                                                     event.message
                                                 )
                                             notify(
-                                                getNotificationId(),
+                                                getNextNotificationId(),
                                                 notification
                                             )
+                                            conversationNotifications[event.message.channelId] =
+                                                notificationId.get()
                                         }
                                     }
                                 }
@@ -290,6 +300,7 @@ class NotificationService : Service() {
     private suspend fun createMessageNotification(
         context: Context,
         sessionToken: String,
+        autumnUrl: String?,
         message: RevoltMessage
     ): Notification = coroutineScope {
         val pendingIntent = Intent(
@@ -307,7 +318,12 @@ class NotificationService : Service() {
         }
 
         val authorPerson =
-            getPersonFromUserId(context, sessionToken, message.authorId)
+            getPersonFromUserId(
+                context,
+                sessionToken,
+                autumnUrl,
+                message.authorId
+            )
 
         val (channel, server) = getChannelAndServer(
             sessionToken,
@@ -316,7 +332,13 @@ class NotificationService : Service() {
         val channelName = getChannelName(sessionToken, channel)
         val serverName = server?.name
         val serverBitmap =
-            server?.icon?.let { getBitmapFromAutumnFile(context, it) }
+            server?.icon?.let {
+                getBitmapFromAutumnFile(
+                    context,
+                    autumnUrl,
+                    it
+                )
+            }
         if (serverBitmap == null)
             Log.d("NOTIF SERVICE", "Server bitmap is null somehow")
 
@@ -358,11 +380,11 @@ class NotificationService : Service() {
             is RevoltChannel.TextChannel -> {
                 RevoltApiModule.service()
                     .fetchServer(sessionToken, channel.serverId).let {
-                    return@coroutineScope if (!it.isSuccessful)
-                        Pair(channel, null)
-                    else
-                        Pair(channel, it.body()!!)
-                }
+                        return@coroutineScope if (!it.isSuccessful)
+                            Pair(channel, null)
+                        else
+                            Pair(channel, it.body()!!)
+                    }
             }
 
             is RevoltChannel.DirectMessage -> {
@@ -378,6 +400,7 @@ class NotificationService : Service() {
     private suspend fun getPersonFromUserId(
         context: Context,
         sessionToken: String,
+        autumnUrl: String?,
         authorId: String
     ): Person {
         return people.getOrPut(authorId) {
@@ -387,10 +410,14 @@ class NotificationService : Service() {
                         val author = it.body()!!
                         var personBuilder = Person.Builder()
                             .setBot(author.botInformation != null)
-                            .setName("@${author.displayName}")
+                            .setName("@${author.displayName ?: author.userName}")
                             .setKey(authorId)
                         author.avatar?.let { file ->
-                            getBitmapFromAutumnFile(context, file)?.let {
+                            getBitmapFromAutumnFile(
+                                context,
+                                autumnUrl,
+                                file
+                            )?.let {
                                 personBuilder = personBuilder.setIcon(
                                     IconCompat.createWithBitmap(it)
                                 )
@@ -406,9 +433,12 @@ class NotificationService : Service() {
 
     private fun getBitmapFromAutumnFile(
         context: Context,
+        autumnUrl: String?,
         file: AutumnFile
     ): Bitmap? {
-        val uri = RevoltApiModule.getResourceUrl(file) ?: return null
+        val uri = autumnUrl?.let {
+            "$it/${file.fileTag}/${file.fileId}"
+        } ?: return null
         return try {
             val url = URL(uri)
             with(url.openConnection() as HttpsURLConnection) {

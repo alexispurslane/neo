@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.ObjectMapper
 import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
@@ -35,11 +37,13 @@ import javax.inject.Singleton
 data class UserSession(
     val instanceApiUrl: String? = null,
     val websocketsUrl: String? = null,
+    val autumnUrl: String? = null,
     val emailAddress: String? = null,
     val sessionId: String? = null,
     val userId: String? = null,
     val sessionToken: String? = null,
-    val displayName: String? = null
+    val displayName: String? = null,
+    val preferences: Map<String, String> = emptyMap()
 )
 
 @OptIn(DelicateCoroutinesApi::class)
@@ -47,24 +51,37 @@ data class UserSession(
 class RevoltAccountsRepository @Inject constructor(
     private val settingsLocalDataSource: DataStore<Preferences>,
 ) {
-    var userSessionFlow: Flow<UserSession> = settingsLocalDataSource.data.catch {
-        if (it is IOException)
-            emit(emptyPreferences())
-        else
-            throw it
-    }.map {
-        UserSession(
-            instanceApiUrl = it[PreferenceKeys.INSTANCE_API_URL],
-            emailAddress = it[PreferenceKeys.EMAIL],
-            sessionId = it[PreferenceKeys.SESSION_ID],
-            userId = it[PreferenceKeys.USER_ID],
-            sessionToken = it[PreferenceKeys.SESSION_TOKEN],
-            displayName = it[PreferenceKeys.DISPLAY_NAME],
-            websocketsUrl = it[PreferenceKeys.WEBSOCKETS_URL]
-        )
-    }
+    private val mapper = ObjectMapper()
 
-    var userProfileCache: MutableMap<String, RevoltUser> = mutableMapOf()
+    var userSessionFlow: Flow<UserSession> =
+        settingsLocalDataSource.data.catch {
+            if (it is IOException)
+                emit(emptyPreferences())
+            else
+                throw it
+        }.map {
+            UserSession(
+                instanceApiUrl = it[PreferenceKeys.INSTANCE_API_URL],
+                websocketsUrl = it[PreferenceKeys.WEBSOCKETS_URL],
+                autumnUrl = it[PreferenceKeys.AUTUMN_URL],
+                emailAddress = it[PreferenceKeys.EMAIL],
+                sessionId = it[PreferenceKeys.SESSION_ID],
+                userId = it[PreferenceKeys.USER_ID],
+                sessionToken = it[PreferenceKeys.SESSION_TOKEN],
+                displayName = it[PreferenceKeys.DISPLAY_NAME],
+                preferences = try {
+                    mapper.readValue(
+                        it[PreferenceKeys.SESSION_PREFERENCES],
+                        object : TypeReference<Map<String, String>>() {}
+                    )
+                } catch (e: Exception) {
+                    emptyMap()
+                }
+            )
+        }
+
+    private var userProfileCache: MutableMap<String, RevoltUser> =
+        mutableMapOf()
 
     var webPushSubscription: MutableStateFlow<WebPushSubscriptionResponse?> =
         MutableStateFlow(null)
@@ -85,11 +102,18 @@ class RevoltAccountsRepository @Inject constructor(
         return RevoltApiModule.service().queryNode(baseUrl)
     }
 
-    suspend fun login(baseUrl: String, emailAddress: String, ws: String, loginRequest: LoginRequest): Either<LoginResponse, String> {
+    suspend fun login(
+        baseUrl: String,
+        emailAddress: String,
+        ws: String,
+        autumn: String,
+        loginRequest: LoginRequest
+    ): Either<LoginResponse, String> {
         return try {
             val res = when (loginRequest) {
                 is LoginRequest.Basic -> RevoltApiModule.service()
                     .login(loginRequest)
+
                 is LoginRequest.MFA -> RevoltApiModule.service()
                     .login(loginRequest)
             }
@@ -100,6 +124,7 @@ class RevoltAccountsRepository @Inject constructor(
                     baseUrl,
                     emailAddress,
                     ws,
+                    autumn,
                     loginResponse
                 )
                 Either.Success(loginResponse)
@@ -107,7 +132,13 @@ class RevoltAccountsRepository @Inject constructor(
                 val errorBody = res.errorBody()?.string()
                 if (errorBody != null) {
                     val jsonObject = JSONObject(errorBody.trim())
-                    Either.Error("Uh oh! ${res.message()}:The server error was '${jsonObject.getString("type")}'")
+                    Either.Error(
+                        "Uh oh! ${res.message()}:The server error was '${
+                            jsonObject.getString(
+                                "type"
+                            )
+                        }'"
+                    )
                 } else {
                     Either.Error("Uh oh! The server returned an error:${res.message()}")
                 }
@@ -117,11 +148,18 @@ class RevoltAccountsRepository @Inject constructor(
         }
     }
 
-    private suspend fun saveLoginInfo(api: String, email: String, ws: String, loginResponse: LoginResponse) {
+    private suspend fun saveLoginInfo(
+        api: String,
+        email: String,
+        ws: String,
+        autumn: String,
+        loginResponse: LoginResponse
+    ) {
         settingsLocalDataSource.edit { preferences ->
             preferences[PreferenceKeys.INSTANCE_API_URL] = api
             preferences[PreferenceKeys.EMAIL] = email
             preferences[PreferenceKeys.WEBSOCKETS_URL] = ws
+            preferences[PreferenceKeys.AUTUMN_URL] = autumn
             Log.d("DATA STORE", "Saved: $api, $email")
 
             if (loginResponse is LoginResponse.Success) {
@@ -130,8 +168,10 @@ class RevoltAccountsRepository @Inject constructor(
                 }
                 preferences[PreferenceKeys.SESSION_ID] = loginResponse.id
                 preferences[PreferenceKeys.USER_ID] = loginResponse.userId
-                preferences[PreferenceKeys.SESSION_TOKEN] = loginResponse.sessionToken
-                preferences[PreferenceKeys.DISPLAY_NAME] = loginResponse.displayName
+                preferences[PreferenceKeys.SESSION_TOKEN] =
+                    loginResponse.sessionToken
+                preferences[PreferenceKeys.DISPLAY_NAME] =
+                    loginResponse.displayName
             }
         }
     }
@@ -143,13 +183,17 @@ class RevoltAccountsRepository @Inject constructor(
                 return Either.Success(userProfileCache[userId]!!)
             }
             try {
-                val res = RevoltApiModule.service().fetchUser(userSession.sessionToken, userId)
+                val res = RevoltApiModule.service()
+                    .fetchUser(userSession.sessionToken, userId)
                 val res2: Response<UserProfile>
                 if (res.isSuccessful) {
                     val user = res.body()!!
                     if (user.profile == null) {
                         res2 = RevoltApiModule.service()
-                            .fetchUserProfile(userSession.sessionToken, user.userId)
+                            .fetchUserProfile(
+                                userSession.sessionToken,
+                                user.userId
+                            )
                         if (res2.isSuccessful) {
                             user.profile = res2.body()!!
                             userProfileCache[userId] = user
@@ -164,11 +208,13 @@ class RevoltAccountsRepository @Inject constructor(
                 val errorBody = (res.errorBody() ?: res.errorBody())?.string()
                 if (errorBody != null) {
                     val jsonObject = JSONObject(errorBody.trim())
-                    return Either.Error("Uh oh! ${res.message()}:The server error was '${
-                        jsonObject.getString(
-                            "type"
-                        )
-                    }'")
+                    return Either.Error(
+                        "Uh oh! ${res.message()}:The server error was '${
+                            jsonObject.getString(
+                                "type"
+                            )
+                        }'"
+                    )
                 } else {
                     return Either.Error("Uh oh! The server returned an error:${res.message()}")
                 }
@@ -185,9 +231,34 @@ class RevoltAccountsRepository @Inject constructor(
             it.clear()
         }
     }
+
+    suspend fun savePreferences(prefs: Map<String, String>) {
+        settingsLocalDataSource.edit {
+            val prevPrefs = try {
+                mapper.readValue(
+                    it[PreferenceKeys.SESSION_PREFERENCES],
+                    prefs::class.java
+                )
+            } catch (e: Exception) {
+                Log.e(
+                    "ACCOUNT REPO",
+                    "Can't deserialize preferences: ${e}"
+                )
+                emptyMap()
+            }
+            val newPrefs = prevPrefs + prefs
+            try {
+                it[PreferenceKeys.SESSION_PREFERENCES] =
+                    mapper.writeValueAsString(newPrefs)
+            } catch (e: Exception) {
+                Log.e("ACCOUNT REPO", "Cannot save preferences: $newPrefs, $e")
+            }
+        }
+    }
 }
 
 object PreferenceKeys {
+    val AUTUMN_URL = stringPreferencesKey("autumn_url")
     val EMAIL = stringPreferencesKey("email")
     val INSTANCE_API_URL = stringPreferencesKey("instance_api_url")
     val WEBSOCKETS_URL = stringPreferencesKey("websockets_url")
@@ -195,4 +266,5 @@ object PreferenceKeys {
     val USER_ID = stringPreferencesKey("user_id")
     val SESSION_TOKEN = stringPreferencesKey("session_token")
     val DISPLAY_NAME = stringPreferencesKey("display_name")
+    val SESSION_PREFERENCES = stringPreferencesKey("session_preferences")
 }

@@ -1,7 +1,7 @@
 package io.github.alexispurslane.bloc.data.network.models
 
 import androidx.annotation.Keep
-import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonSubTypes.Type
@@ -10,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonValue
 import com.fasterxml.jackson.databind.JsonNode
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class BuildResponse(
     @JsonProperty("commit_sha") val commitSha: String,
     @JsonProperty("commit_timestamp") val commitTimestamp: String,
@@ -19,6 +20,7 @@ data class BuildResponse(
 )
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class QueryNodeResponse(
     @JsonProperty("revolt") val revolt: String,
     @JsonProperty("ws") val ws: String,
@@ -29,12 +31,14 @@ data class QueryNodeResponse(
 )
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class WebPushSubscriptionResponse(
     @JsonProperty("endpoint") val endpoint: String,
     @JsonProperty("p256dh") val p256dh: String,
     @JsonProperty("auth") val auth: String,
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
     include = JsonTypeInfo.As.EXISTING_PROPERTY,
@@ -90,8 +94,8 @@ enum class Presence(@JsonValue val presence: String) {
 }
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class RevoltUser(
-    @param:JsonAlias("id")
     @param:JsonProperty("_id") val userId: String,
     @param:JsonProperty("username") val userName: String,
     @param:JsonProperty("discriminator") val discriminator: String,
@@ -108,7 +112,26 @@ data class RevoltUser(
     @param:JsonProperty("online") val online: Boolean?,
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class RevoltUserUpdate(
+    @param:JsonProperty("_id") val userId: String?,
+    @param:JsonProperty("username") val userName: String?,
+    @param:JsonProperty("discriminator") val discriminator: String?,
+    @param:JsonProperty("display_name") val displayName: String?,
+    @param:JsonProperty("avatar") val avatar: AutumnFile?,
+    @param:JsonProperty("relations") val relations: List<UserRelation>?,
+    @param:JsonProperty("badges") val badges: Int?,
+    @param:JsonProperty("status") val status: UserStatus?,
+    @param:JsonProperty("profile") var profile: UserProfile?,
+    @param:JsonProperty("flags") val flags: Int?,
+    @param:JsonProperty("privileged") val privileged: Boolean?,
+    @param:JsonProperty("bot") val botInformation: BotInformation?,
+    @param:JsonProperty("relationship") val relationship: String?,
+    @param:JsonProperty("online") val online: Boolean?,
+)
 
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class AutumnFile(
     @param:JsonProperty("_id") val fileId: String,
     @param:JsonProperty("tag") val fileTag: String,
@@ -124,6 +147,7 @@ data class AutumnFile(
     @param:JsonProperty("object_id") val objectId: String?,
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
     include = JsonTypeInfo.As.EXISTING_PROPERTY,
@@ -156,49 +180,50 @@ sealed class RevoltFileMetadata private constructor() {
     @Keep
     data class Image(
         @param:JsonProperty("type") val type: String,
-        @param:JsonProperty("width") val width: Int,
-        @param:JsonProperty("height") val height: Int,
+        @param:JsonProperty("width") val width: Long,
+        @param:JsonProperty("height") val height: Long,
     ) : RevoltFileMetadata()
 
     @Keep
     data class Video(
         @param:JsonProperty("type") val type: String,
-        @param:JsonProperty("width") val width: Int,
-        @param:JsonProperty("height") val height: Int,
+        @param:JsonProperty("width") val width: Long,
+        @param:JsonProperty("height") val height: Long,
     ) : RevoltFileMetadata()
 }
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class UserRelation(
     @param:JsonProperty("_id") val userId: String,
     @param:JsonProperty("status") val status: RelationshipStatus
 )
 
-
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class UserStatus(
     @param:JsonProperty("text") val customStatus: String?,
     @param:JsonProperty("presence") val presence: Presence?
 )
 
-
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class UserProfile(
     @param:JsonProperty("content") val content: String?,
     @param:JsonProperty("background") val background: AutumnFile?,
 )
 
-
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class BotInformation(
     @param:JsonProperty("owner") val ownerId: String
 )
 
-
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class RevoltServer(
     @param:JsonProperty("_id") val serverId: String,
     @param:JsonProperty("owner") val ownerId: String,
     @param:JsonProperty("name") val name: String,
     @param:JsonProperty("description") val description: String?,
     @param:JsonProperty("channels") val channelsIds: List<String>,
-    @param:JsonProperty("categories") var categories: List<ServerCategory>,
+    @param:JsonProperty("categories") var categories: List<ServerCategory>?,
     @param:JsonProperty("system_messages") var systemMessagesConfig: SystemMessagesConfig?,
     @param:JsonProperty("roles") var roles: Map<String, Role>?,
     @param:JsonProperty("default_permissions") var defaultPermissions: Long,
@@ -210,14 +235,14 @@ data class RevoltServer(
     @param:JsonProperty("discoverable") var discoverable: Boolean?,
 )
 
-
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class ServerCategory(
     @param:JsonProperty("id") val categoryId: String,
     @param:JsonProperty("title") val title: String,
     @param:JsonProperty("channels") val channelIds: List<String>,
 )
 
-
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class SystemMessagesConfig(
     @param:JsonProperty("user_joined") val userJoinedChannelId: String?,
     @param:JsonProperty("user_left") val userLeftChannelId: String?,
@@ -225,7 +250,7 @@ data class SystemMessagesConfig(
     @param:JsonProperty("user_banned") val userBannedChannelId: String?,
 )
 
-
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class Role(
     @param:JsonProperty("name") val name: String,
     @param:JsonProperty("permissions") val permissions: Permissions,
@@ -234,12 +259,13 @@ data class Role(
     @param:JsonProperty("rank") val rank: Int = 0,
 )
 
-
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class Permissions(
     @param:JsonProperty("a") val allow: Long,
     @param:JsonProperty("d") val disallow: Long,
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
     include = JsonTypeInfo.As.EXISTING_PROPERTY,
@@ -293,7 +319,7 @@ sealed class RevoltChannel private constructor() {
         @param:JsonProperty("description") val description: String?,
         @param:JsonProperty("icon") val icon: AutumnFile?,
         @param:JsonProperty("last_message_id") val lastMessageId: String?,
-        @param:JsonProperty("default_permissions") val defaultPermissions: Long?,
+        @param:JsonProperty("default_permissions") val defaultPermissions: JsonNode,
         @param:JsonProperty("role_permissions") val rolePermissions: Map<String, Permissions>?,
         @param:JsonProperty("nsfw") val nsfw: Boolean?,
     ) : RevoltChannel()
@@ -313,6 +339,7 @@ sealed class RevoltChannel private constructor() {
 }
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class Emoji(
     @param:JsonProperty("_id") val emojiId: String,
     @param:JsonProperty("parent") val parent: EmojiParent,
@@ -323,12 +350,14 @@ data class Emoji(
 )
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class EmojiParent(
     @param:JsonProperty("type") val type: String,
     @param:JsonProperty("id") val serverId: String?
 )
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class RevoltMessage(
     @param:JsonProperty("_id") val messageId: String,
     @param:JsonProperty("nonce") val nonce: String?,
@@ -342,11 +371,12 @@ data class RevoltMessage(
     @param:JsonProperty("embeds") val embeds: List<JsonNode>?,
     @param:JsonProperty("mentions") val mentionedIds: List<String>?,
     @param:JsonProperty("replies") val replyIds: List<String>?,
-    @param:JsonProperty("reactions") val reactions: Map<String, String>?,
+    @param:JsonProperty("reactions") val reactions: Map<String, List<String>>?,
     @param:JsonProperty("interactions") val interactions: InteractionsGuide?,
     @param:JsonProperty("masquerade") val masquerade: Masquerade?,
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class RevoltMessageSent(
     @param:JsonProperty("content") val content: String?,
     @param:JsonProperty("attachments") val attachments: List<AutumnFile>?,
@@ -357,6 +387,7 @@ data class RevoltMessageSent(
 )
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class Masquerade(
     @param:JsonProperty("name") val name: String?,
     @param:JsonProperty("avatar") val avatarUrl: String?,
@@ -364,35 +395,133 @@ data class Masquerade(
 )
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class InteractionsGuide(
     @param:JsonProperty("reactions") val reactions: List<String>?,
     @param:JsonProperty("restrict_reactions") val restrictReactions: Boolean?,
 )
 
 // TODO: Turn this into a discriminated union like the other stuff for proper type-safety
-
-data class SystemEventMessage(
-    @param:JsonProperty("type") val type: String,
-    @param:JsonProperty("content") val content: String?,
-    @param:JsonProperty("name") val name: String?,
-    @param:JsonProperty("id") val id: String?,
-    @param:JsonProperty("from") val from: String?,
-    @param:JsonProperty("by") val by: String?,
+@JsonTypeInfo(
+    use = JsonTypeInfo.Id.NAME,
+    include = JsonTypeInfo.As.EXISTING_PROPERTY,
+    property = "type",
+    visible = true
 )
+@JsonSubTypes(
+    Type(value = SystemEventMessage.Text::class, name = "text"),
+    Type(value = SystemEventMessage.UserAdded::class, name = "user_added"),
+    Type(value = SystemEventMessage.UserRemoved::class, name = "user_remove"),
+    Type(value = SystemEventMessage.UserJoined::class, name = "user_joined"),
+    Type(value = SystemEventMessage.UserLeft::class, name = "user_left"),
+    Type(value = SystemEventMessage.UserKicked::class, name = "user_kickd"),
+    Type(value = SystemEventMessage.UserBanned::class, name = "user_banned"),
+    Type(
+        value = SystemEventMessage.ChannelRenamed::class,
+        name = "channel_renamed"
+    ),
+    Type(
+        value = SystemEventMessage.ChannelDescriptionChanged::class,
+        name = "channel_description_changed"
+    ),
+    Type(
+        value = SystemEventMessage.ChannelIconChanged::class,
+        name = "channel_icon_changed"
+    ),
+    Type(
+        value = SystemEventMessage.ChannelOwnershipChanged::class,
+        name = "channel_ownership_changed"
+    ),
+)
+@JsonIgnoreProperties(ignoreUnknown = true)
+sealed class SystemEventMessage(var message: String = "") {
+    @Keep
+    data class Text(
+        @param:JsonProperty("type") val type: String,
+        @param:JsonProperty("content") val content: String,
+    ) : SystemEventMessage(content)
+
+    @Keep
+    data class UserAdded(
+        @param:JsonProperty("type") val type: String,
+        @param:JsonProperty("id") val addedUserId: String,
+        @param:JsonProperty("by") val byUserId: String,
+    ) : SystemEventMessage("<@${addedUserId}> added by <@${byUserId}>")
+
+    @Keep
+    data class UserRemoved(
+        @param:JsonProperty("type") val type: String,
+        @param:JsonProperty("id") val addedUserId: String,
+        @param:JsonProperty("by") val byUserId: String,
+    ) : SystemEventMessage("<@${addedUserId}> removed by <@${byUserId}>")
+
+    @Keep
+    data class UserJoined(
+        @param:JsonProperty("type") val type: String,
+        @param:JsonProperty("id") val userId: String,
+    ) : SystemEventMessage("<@${userId}> joined")
+
+    @Keep
+    data class UserLeft(
+        @param:JsonProperty("type") val type: String,
+        @param:JsonProperty("id") val userId: String,
+    ) : SystemEventMessage("<@${userId}> left")
+
+    @Keep
+    data class UserKicked(
+        @param:JsonProperty("type") val type: String,
+        @param:JsonProperty("id") val userId: String,
+    ) : SystemEventMessage("<@${userId}> kicked")
+
+    @Keep
+    data class UserBanned(
+        @param:JsonProperty("type") val type: String,
+        @param:JsonProperty("id") val userId: String,
+    ) : SystemEventMessage("<@${userId}> banned")
+
+    @Keep
+    data class ChannelRenamed(
+        @param:JsonProperty("type") val type: String,
+        @param:JsonProperty("name") val name: String,
+        @param:JsonProperty("by") val byUserId: String,
+    ) : SystemEventMessage("Channel renamed to #${name} by <@${byUserId}>")
+
+    @Keep
+    data class ChannelDescriptionChanged(
+        @param:JsonProperty("type") val type: String,
+        @param:JsonProperty("by") val byUserId: String,
+    ) : SystemEventMessage("Channel description changed by <@${byUserId}>")
+
+    @Keep
+    data class ChannelIconChanged(
+        @param:JsonProperty("type") val type: String,
+        @param:JsonProperty("by") val byUserId: String,
+    ) : SystemEventMessage("Channel icon changed by <@${byUserId}>")
+
+    @Keep
+    data class ChannelOwnershipChanged(
+        @param:JsonProperty("type") val type: String,
+        @param:JsonProperty("from") val fromUserId: String,
+        @param:JsonProperty("to") val toUserId: String,
+    ) : SystemEventMessage("Channel ownership changed from <@${fromUserId}> to <@${toUserId}>")
+}
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class Webhook(
     @param:JsonProperty("name") val name: String,
     @param:JsonProperty("avatar") val avatar: String?
 )
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class RevoltMembersResponse(
     @param:JsonProperty("members") val members: List<RevoltServerMember>,
     @param:JsonProperty("users") val users: List<RevoltUser>
 )
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class RevoltServerMember(
     @param:JsonProperty("_id") val compositePrimaryId: RevoltCompositeId,
     @param:JsonProperty("joined_at") val joinedAt: String,
@@ -403,6 +532,7 @@ data class RevoltServerMember(
 )
 
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class RevoltCompositeId(
     @param:JsonProperty("server") val server: String,
     @param:JsonProperty("user") val user: String,
