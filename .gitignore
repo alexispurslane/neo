@@ -4,5 +4,4 @@
 .idea/*
 gradle
 gradle/*
-gradlew*
 app/release/*
