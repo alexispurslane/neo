@@ -123,7 +123,6 @@ fun ChannelTopBar(channelInfo: RevoltChannel.TextChannel) {
     TopAppBar(
         colors = topAppBarColors(
             containerColor = MaterialTheme.colorScheme.background,
-            scrolledContainerColor = MaterialTheme.colorScheme.secondaryContainer,
         ),
         title = {
             Row(

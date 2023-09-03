@@ -23,7 +23,7 @@ import javax.inject.Singleton
 @OptIn(DelicateCoroutinesApi::class)
 @Singleton
 class RevoltServersRepository @Inject constructor(
-    private val revoltAccountsRepository: RevoltAccountsRepository
+    private val revoltAccountsRepository: RevoltAccountsRepository,
 ) {
     private var _servers: MutableStateFlow<Map<String, RevoltServer>> =
         MutableStateFlow(

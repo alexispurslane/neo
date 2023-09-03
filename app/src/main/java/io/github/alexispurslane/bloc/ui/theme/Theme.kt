@@ -19,6 +19,7 @@ import io.github.alexispurslane.bloc.viewmodels.SettingsViewModel
 
 private val DarkColorScheme = darkColorScheme(
     primary = EngineeringOrange,
+    secondary = Color(0xFF0EB3B3),
     surface = Color(0xFF0f0f0f),
     secondaryContainer = Color(0xFF0f0f0f),
     onSecondaryContainer = Color.LightGray,
@@ -29,7 +30,8 @@ private val DarkColorScheme = darkColorScheme(
 
 private val LightColorScheme = lightColorScheme(
     primary = EngineeringOrange,
-    surface = Platinum,
+    secondary = Color(0xFF0EB3B3),
+    surface = Color(0xFF0f0f0f),
     secondaryContainer = Color(0xFFEEEEEE),
     onSecondaryContainer = Color.Black,
 

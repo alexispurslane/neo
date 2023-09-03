@@ -12,6 +12,9 @@ import io.github.alexispurslane.bloc.findIndex
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -29,13 +32,59 @@ class RevoltMessagesRepository @Inject constructor(
     val channelMessages
         get(): Map<String, SnapshotStateList<RevoltMessage>> = _channelMessages
 
+    val existingMessageIds: HashSet<String> = hashSetOf()
+
+    private val USER_MENTION_REGEX by lazy { Regex("<@([a-zA-Z0-9]+)>") }
+    private suspend fun treatMessage(message: RevoltMessage): RevoltMessage =
+        coroutineScope {
+            val userInformation = (message.mentionedIds?.plus(
+                message.systemEventMessage?.let { USER_MENTION_REGEX.find(it.message) }?.groupValues
+                    ?: emptyList()
+            ))?.map { userId: String ->
+                async {
+                    when (val u =
+                        revoltAccountsRepository.fetchUserInformation(userId)) {
+                        is Either.Success -> {
+                            u.value.userId to u.value
+                        }
+
+                        is Either.Error -> {
+                            null
+                        }
+                    }
+                }
+            }?.awaitAll()?.filterNotNull()?.toMap() ?: emptyMap()
+            val newContent = message.content?.replace(USER_MENTION_REGEX) {
+                val user = userInformation[it.groupValues[1]]
+                "[@${user?.userName ?: it.value}](bloc://profile/${user?.userId})"
+            }
+            message.systemEventMessage?.let {
+                it.message =
+                    it.message.replace(USER_MENTION_REGEX) {
+                        val user = userInformation[it.groupValues[1]]
+                        val id =
+                            if (user != null) "@${user.userName}" else it.value
+                        "[${id}](bloc://profile/${it.groupValues[1]})"
+                    }
+            }
+            message.copy(
+                content = newContent,
+                systemEventMessage = message.systemEventMessage
+            )
+        }
+
     init {
         GlobalScope.launch(Dispatchers.IO) {
             RevoltWebSocketModule.eventFlow.collect { event ->
                 when (event) {
                     is RevoltWebSocketResponse.Message -> {
-                        _channelMessages[event.message.channelId]?.apply {
-                            add(0, event.message)
+                        launch {
+                            if (!existingMessageIds.contains(event.message.messageId)) {
+                                _channelMessages[event.message.channelId]?.apply {
+                                    add(0, treatMessage(event.message))
+                                }
+                                existingMessageIds.add(event.message.messageId)
+                            }
                         }
                     }
 
@@ -94,60 +143,73 @@ class RevoltMessagesRepository @Inject constructor(
         sort: String? = null,
         nearby: String? = null,
         includeUsers: Boolean? = null
-    ): Either<SnapshotStateList<RevoltMessage>, String> {
-        val userSession = revoltAccountsRepository.userSessionFlow.first()
-        if (userSession.sessionToken == null) {
-            return Either.Error(
-                "Uh oh! Your user session token is null:You'll have to sign out and sign back in again."
-            )
-        }
-
-        return try {
-            val res = RevoltApiModule.service().fetchMessages(
-                userSession.sessionToken,
-                channelId,
-                limit,
-                before,
-                after,
-                sort,
-                nearby,
-                includeUsers
-            )
-            val body = res.body()!!
-            val errorBody = (res.errorBody() ?: res.errorBody())?.string()
-            if (res.isSuccessful) {
-                if (_channelMessages.containsKey(channelId)) {
-                    if (nearby == null && includeUsers == null && sort != "Relevance" && body.isNotEmpty()) {
-                        _channelMessages[channelId]!!.apply {
-                            integrateMessages(this, body, before, after, sort)
-                        }
-                    }
-                } else {
-                    _channelMessages.getOrPut(
-                        channelId,
-                        { mutableStateListOf() }).apply {
-                        addAll(body)
-                    }
-                }
-                Either.Success(channelMessages[channelId]!!)
-            } else if (errorBody != null) {
-                val jsonObject = JSONObject(errorBody.trim())
+    ): Either<SnapshotStateList<RevoltMessage>, String> = coroutineScope {
+        with(Dispatchers.IO) {
+            val userSession = revoltAccountsRepository.userSessionFlow.first()
+            if (userSession.sessionToken == null) {
                 Either.Error(
-                    "Uh oh! ${res.message()}:The server error was '${
-                        jsonObject.getString(
-                            "type"
-                        )
-                    }'"
+                    "Uh oh! Your user session token is null:You'll have to sign out and sign back in again."
                 )
             } else {
-                Either.Error(
-                    "Uh oh! The server returned an error:${res.message()}"
-                )
+                try {
+                    val res = RevoltApiModule.service().fetchMessages(
+                        userSession.sessionToken,
+                        channelId,
+                        limit,
+                        before,
+                        after,
+                        sort,
+                        nearby,
+                        includeUsers
+                    )
+                    val body = res.body()!!.map {
+                        async {
+                            treatMessage(it)
+                        }
+                    }.awaitAll()
+                    val errorBody =
+                        (res.errorBody() ?: res.errorBody())?.string()
+                    if (res.isSuccessful) {
+                        if (_channelMessages.containsKey(channelId)) {
+                            if (nearby == null && includeUsers == null && sort != "Relevance" && body.isNotEmpty()) {
+                                _channelMessages[channelId]!!.apply {
+                                    integrateMessages(
+                                        this,
+                                        body,
+                                        before,
+                                        after,
+                                        sort
+                                    )
+                                }
+                            }
+                        } else {
+                            _channelMessages.getOrPut(
+                                channelId,
+                                { mutableStateListOf() }).apply {
+                                addAll(body)
+                            }
+                        }
+                        Either.Success(channelMessages[channelId]!!)
+                    } else if (errorBody != null) {
+                        val jsonObject = JSONObject(errorBody.trim())
+                        Either.Error(
+                            "Uh oh! ${res.message()}:The server error was '${
+                                jsonObject.getString(
+                                    "type"
+                                )
+                            }'"
+                        )
+                    } else {
+                        Either.Error(
+                            "Uh oh! The server returned an error:${res.message()}"
+                        )
+                    }
+                } catch (e: Exception) {
+                    Either.Error(
+                        "Uh oh! Was unable to send request for messages to the server: ${e.message}"
+                    )
+                }
             }
-        } catch (e: Exception) {
-            Either.Error(
-                "Uh oh! Was unable to send request for messages to the server: ${e.message}"
-            )
         }
     }
 
