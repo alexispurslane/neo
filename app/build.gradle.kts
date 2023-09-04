@@ -1,3 +1,11 @@
+import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
+
+val environment = System.getenv()
+fun getLocalProperty(key: String) =
+    gradleLocalProperties(rootDir).getProperty(key)
+
+fun String.toFile() = File(this)
+
 plugins {
     kotlin("kapt")
     id("com.android.application")
@@ -31,6 +39,25 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = getLocalProperty("signing.keyAlias")
+                ?: environment["SIGNING_KEY_ALIAS"]
+                        ?: error("Cannot find signing key alias")
+            storeFile = file(
+                getLocalProperty("signing.storeFile")
+                    ?: environment["SIGNING_STORE_FILE"]
+                    ?: error("Cannot find signing keystore file")
+            )
+            keyPassword = getLocalProperty("signing.keyPassword")
+                ?: environment["SIGNING_KEY_PASSWORD"]
+                        ?: error("Cannot find signing key password")
+            storePassword = getLocalProperty("signing.storePassword")
+                ?: environment["SIGNING_STORE_PASSWORD"]
+                        ?: error("Cannot find signing keystore password")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -39,7 +66,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
 
         debug {
@@ -73,13 +100,26 @@ android {
 }
 
 task<Exec>("stopApp") {
-    commandLine("adb", "shell", "am", "force-stop", "io.github.alexispurslane.bloc")
+    commandLine(
+        "adb",
+        "shell",
+        "am",
+        "force-stop",
+        "io.github.alexispurslane.bloc"
+    )
 }
 
 task<Exec>("appStart") {
     dependsOn("installDebug")
     dependsOn("stopApp")
-    commandLine("adb", "shell", "am", "start", "-n", "io.github.alexispurslane.bloc/.MainActivity")
+    commandLine(
+        "adb",
+        "shell",
+        "am",
+        "start",
+        "-n",
+        "io.github.alexispurslane.bloc/.MainActivity"
+    )
 }
 
 dependencies {

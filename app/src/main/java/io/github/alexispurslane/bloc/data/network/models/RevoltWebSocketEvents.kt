@@ -1,5 +1,6 @@
 package io.github.alexispurslane.bloc.data.network.models
 
+import androidx.annotation.Keep
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
@@ -34,22 +35,27 @@ import io.github.alexispurslane.bloc.data.SinglePolyUnwrappedDeserializer
         name = "Ping"
     ),
 )
+@Keep
 sealed class RevoltWebSocketRequest private constructor() {
+    @Keep
     data class Authenticate(
         @get:JsonProperty("type") val type: String = "Authenticate",
         @get:JsonProperty("token") val sessionToken: String
     ) : RevoltWebSocketRequest()
 
+    @Keep
     data class BeginTyping(
         @get:JsonProperty("type") val type: String = "BeginTyping",
         @get:JsonProperty("channel") val channelId: String
     ) : RevoltWebSocketRequest()
 
+    @Keep
     data class EndTyping(
         @get:JsonProperty("type") val type: String = "EndTyping",
         @get:JsonProperty("channel") val channelId: String
     ) : RevoltWebSocketRequest()
 
+    @Keep
     data class Ping(
         @get:JsonProperty("type") val type: String = "Ping",
         @get:JsonProperty("data") var timestamp: Long = 0
@@ -218,26 +224,33 @@ enum class RevoltErrorId(@JsonValue val errorId: String) {
         name = "Auth"
     ),
 )
+
+@Keep
 sealed class RevoltWebSocketResponse constructor() {
+    @Keep
     data class Error(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("error") val errorId: RevoltErrorId
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class Authenticated(
         @param:JsonProperty("type") val type: String
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class Bulk(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("v") val events: List<RevoltWebSocketResponse>
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class Pong(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("data") val timestamp: Long = 0
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class Ready(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("users") val users: List<RevoltUser>,
@@ -248,20 +261,23 @@ sealed class RevoltWebSocketResponse constructor() {
     ) : RevoltWebSocketResponse()
 
     @JsonDeserialize(using = SinglePolyUnwrappedDeserializer::class)
+    @Keep
     data class Message(
         @param:JsonProperty("type") val type: String,
-        @JsonProperty("message")
+        @param:JsonProperty("message")
         @field:JsonUnwrapped
         val message: RevoltMessage
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class MessageUpdate(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val messageId: String,
         @param:JsonProperty("channel") val channelId: String,
-        @param:JsonProperty("data") val data: RevoltMessage,
+        @param:JsonProperty("data") val data: RevoltMessageUpdate,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class MessageAppend(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val messageId: String,
@@ -269,12 +285,14 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("append") val append: JsonNode,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class MessageDelete(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val messageId: String,
         @param:JsonProperty("channel") val channelId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class MessageReact(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val messageId: String,
@@ -283,6 +301,7 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("emoji_id") val emojiId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class MessageUnreact(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val messageId: String,
@@ -291,6 +310,7 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("emoji_id") val emojiId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class MessageRemoveReaction(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val messageId: String,
@@ -298,6 +318,7 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("emoji_id") val emojiId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     @JsonDeserialize(using = SinglePolyUnwrappedDeserializer::class)
     data class ChannelCreate(
         @param:JsonProperty("type") val type: String,
@@ -306,6 +327,7 @@ sealed class RevoltWebSocketResponse constructor() {
         val channel: RevoltChannel
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ChannelUpdate(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val channelId: String,
@@ -313,35 +335,41 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("clear") val clear: List<String>,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ChannelDelete(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val channelId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ChannelGroupJoin(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val channelId: String,
         @param:JsonProperty("user") val userId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ChannelGroupLeave(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val channelId: String,
         @param:JsonProperty("user") val userId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ChannelStartTyping(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val channelId: String,
         @param:JsonProperty("user") val userId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ChannelStopTyping(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val channelId: String,
         @param:JsonProperty("user") val userId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ChannelAcknowledge(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val channelId: String,
@@ -350,6 +378,7 @@ sealed class RevoltWebSocketResponse constructor() {
     ) : RevoltWebSocketResponse()
 
     @JsonDeserialize(using = SinglePolyUnwrappedDeserializer::class)
+    @Keep
     data class ServerCreate(
         @param:JsonProperty("type") val type: String,
         @JsonProperty("server")
@@ -357,6 +386,7 @@ sealed class RevoltWebSocketResponse constructor() {
         val server: RevoltServer
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ServerUpdate(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val serverId: String,
@@ -364,11 +394,13 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("clear") val clear: List<String>,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ServerDelete(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val serverId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ServerMemberUpdate(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val ids: Map<String, String>,
@@ -376,18 +408,21 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("clear") val clear: List<String>,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ServerMemberJoin(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val serverId: String,
         @param:JsonProperty("user") val userId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ServerMemberLeave(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val serverId: String,
         @param:JsonProperty("user") val userId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ServerRoleUpdate(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val serverId: String,
@@ -396,12 +431,14 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("clear") val clear: List<String>,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class ServerRoleDelete(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val serverId: String,
         @param:JsonProperty("role_id") val roleId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class UserUpdate(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val userId: String,
@@ -409,6 +446,7 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("clear") val clear: List<String>,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class UserRelationship(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val yourUserId: String,
@@ -416,6 +454,7 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("status") val status: RelationshipStatus,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class UserPlatformWipe(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("user_id") val userId: String,
@@ -423,6 +462,7 @@ sealed class RevoltWebSocketResponse constructor() {
     ) : RevoltWebSocketResponse()
 
     @JsonDeserialize(using = SinglePolyUnwrappedDeserializer::class)
+    @Keep
     data class EmojiCreate(
         @param:JsonProperty("type") val type: String,
         @JsonProperty("emoji")
@@ -430,11 +470,13 @@ sealed class RevoltWebSocketResponse constructor() {
         val emoji: Emoji
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class EmojiDelete(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val emojiId: String,
     ) : RevoltWebSocketResponse()
 
+    @Keep
     data class Auth(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("event_type") val eventType: String,

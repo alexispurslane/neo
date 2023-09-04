@@ -3,6 +3,7 @@ package io.github.alexispurslane.bloc.data
 // All credit for this work goes to Anton Zhilin on GitHub: https://gist.github.com/Anton3/348e639b6d46c3598f3311b9feca8578l
 // Usually I don't copy-paste code ever, but... Jesus, I don't want to deal with whatever the hell this is.
 
+import androidx.annotation.Keep
 import com.fasterxml.jackson.annotation.JsonUnwrapped
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.*
@@ -13,8 +14,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.node.TreeTraversingParser
 import com.fasterxml.jackson.databind.util.NameTransformer
 
-class SinglePolyUnwrappedDeserializer<T : Any> : JsonDeserializer<T>(),
+@Keep
+class SinglePolyUnwrappedDeserializer<T : Any>() : JsonDeserializer<T>(),
     ContextualDeserializer {
+
     override fun deserialize(p: JsonParser, ctxt: DeserializationContext): T =
         error("Not implemented")
 
@@ -25,6 +28,7 @@ class SinglePolyUnwrappedDeserializer<T : Any> : JsonDeserializer<T>(),
         SinglePolyUnwrappedDeserializerImpl(ctxt)
 }
 
+@Keep
 private class SinglePolyUnwrappedDeserializerImpl<T : Any>(ctxt: DeserializationContext) :
     StdDeserializer<T>(null as JavaType?) {
 
@@ -109,16 +113,20 @@ private class SinglePolyUnwrappedDeserializerImpl<T : Any>(ctxt: Deserialization
         return beanDeserializer.deserialize(syntheticParser, ctxt)
     }
 
+    @Keep
     private class NotUnwrapped(
+        @Keep
         @Suppress("unused")
         @field:JsonUnwrapped(enabled = false)
         @JvmField
         val dummy: Nothing
     )
 
+    @Keep
     companion object {
+        @Keep
         val notUnwrappedAnnotation: JsonUnwrapped =
             NotUnwrapped::class.java.getField("dummy")
-                .getAnnotation(JsonUnwrapped::class.java)
+                .getAnnotation(JsonUnwrapped::class.java)!!
     }
 }

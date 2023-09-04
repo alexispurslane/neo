@@ -3,3 +3,4 @@
 .idea
 .idea/*
 app/release/*
+local.properties

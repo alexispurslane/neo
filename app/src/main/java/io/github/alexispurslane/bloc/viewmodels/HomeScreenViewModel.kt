@@ -103,6 +103,10 @@ class HomeScreenViewModel @Inject constructor(
                     val lastServer = userSession.preferences["last_server"]
                     val lastChannel =
                         lastServer?.let { userSession.preferences[it] }
+                    Log.d(
+                        "HOME VIEW",
+                        "last server: $lastServer, last channel: $lastChannel"
+                    )
                     it.copy(
                         userInfo = userInfo.value,
                         autumnUrl = userSession.autumnUrl,
@@ -131,6 +135,10 @@ class HomeScreenViewModel @Inject constructor(
     }
 
     fun saveLast(currentServerId: String, currentChannelId: String) {
+        Log.d(
+            "HOME VIEW",
+            "save preferences: $currentChannelId, $currentServerId"
+        )
         viewModelScope.launch {
             revoltAccountRepository.savePreferences(
                 mapOf(

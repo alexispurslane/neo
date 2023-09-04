@@ -180,10 +180,6 @@ class ServerChannelViewModel @Inject constructor(
         val members = membersInfo as Either.Success
         val users = members.value.users.zip(members.value.members)
             .associate { (user, member) ->
-                Log.d(
-                    "CHANNEL VIEW",
-                    "Found user ${user.userId}, @${user.userName}#${user.discriminator}"
-                )
                 user.userId to (user to member)
             }
 

@@ -189,6 +189,9 @@ class RevoltMessagesRepository @Inject constructor(
                                 addAll(body)
                             }
                         }
+                        existingMessageIds.addAll(
+                            body.map { it.messageId }
+                        )
                         Either.Success(channelMessages[channelId]!!)
                     } else if (errorBody != null) {
                         val jsonObject = JSONObject(errorBody.trim())

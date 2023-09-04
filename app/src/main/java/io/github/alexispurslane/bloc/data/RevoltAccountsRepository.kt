@@ -1,6 +1,7 @@
 package io.github.alexispurslane.bloc.data
 
 import android.util.Log
+import androidx.annotation.Keep
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -60,6 +61,8 @@ class RevoltAccountsRepository @Inject constructor(
             else
                 throw it
         }.map {
+            val str = it[PreferenceKeys.SESSION_PREFERENCES]
+            Log.d("ACCOUNTS REPO", "Load prefs: $str")
             UserSession(
                 instanceApiUrl = it[PreferenceKeys.INSTANCE_API_URL],
                 websocketsUrl = it[PreferenceKeys.WEBSOCKETS_URL],
@@ -71,10 +74,11 @@ class RevoltAccountsRepository @Inject constructor(
                 displayName = it[PreferenceKeys.DISPLAY_NAME],
                 preferences = try {
                     mapper.readValue(
-                        it[PreferenceKeys.SESSION_PREFERENCES],
-                        object : TypeReference<Map<String, String>>() {}
+                        str,
+                        @Keep object : TypeReference<Map<String, String>>() {}
                     )
                 } catch (e: Exception) {
+                    Log.e("ACCOUNTS REPO", "Preferences parsing exception: $e")
                     emptyMap()
                 }
             )
@@ -247,9 +251,10 @@ class RevoltAccountsRepository @Inject constructor(
                 emptyMap()
             }
             val newPrefs = prevPrefs + prefs
+            val serialized = mapper.writeValueAsString(newPrefs)
+            Log.d("ACCOUNT REPO", "Save preferences: $serialized")
             try {
-                it[PreferenceKeys.SESSION_PREFERENCES] =
-                    mapper.writeValueAsString(newPrefs)
+                it[PreferenceKeys.SESSION_PREFERENCES] = serialized
             } catch (e: Exception) {
                 Log.e("ACCOUNT REPO", "Cannot save preferences: $newPrefs, $e")
             }

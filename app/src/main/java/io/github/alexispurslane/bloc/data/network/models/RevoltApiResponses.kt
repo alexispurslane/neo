@@ -377,6 +377,25 @@ data class RevoltMessage(
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
+data class RevoltMessageUpdate(
+    @param:JsonProperty("_id") val messageId: String?,
+    @param:JsonProperty("nonce") val nonce: String?,
+    @param:JsonProperty("channel") val channelId: String?,
+    @param:JsonProperty("author") val authorId: String?,
+    @param:JsonProperty("webhook") val webhook: Webhook?,
+    @param:JsonProperty("content") val content: String?,
+    @param:JsonProperty("system") val systemEventMessage: SystemEventMessage?,
+    @param:JsonProperty("attachments") val attachments: List<AutumnFile>?,
+    @param:JsonProperty("edited") val edited: String?,
+    @param:JsonProperty("embeds") val embeds: List<JsonNode>?,
+    @param:JsonProperty("mentions") val mentionedIds: List<String>?,
+    @param:JsonProperty("replies") val replyIds: List<String>?,
+    @param:JsonProperty("reactions") val reactions: Map<String, List<String>>?,
+    @param:JsonProperty("interactions") val interactions: InteractionsGuide?,
+    @param:JsonProperty("masquerade") val masquerade: Masquerade?,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class RevoltMessageSent(
     @param:JsonProperty("content") val content: String?,
     @param:JsonProperty("attachments") val attachments: List<AutumnFile>?,
