@@ -1,6 +1,7 @@
 package io.github.alexispurslane.bloc.viewmodels
 
 import android.util.Log
+import androidx.compose.runtime.State
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -23,8 +24,8 @@ import javax.inject.Inject
 data class UserProfileUiState(
     val editing: Boolean = false,
     val currentUserId: String? = null,
-    val userProfile: RevoltUser? = null,
-    val relationships: Map<RelationshipStatus, RevoltUser> = mapOf()
+    val userProfile: State<RevoltUser>? = null,
+    val relationships: Map<RelationshipStatus, State<RevoltUser>> = mapOf()
 )
 
 @HiltViewModel
@@ -53,13 +54,13 @@ class UserProfileViewModel @Inject constructor(
                 is Either.Success -> {
                     Log.d(
                         "USER PROFILE",
-                        "${userId} relations: ${userProfile.value.relations}"
+                        "${userId} relations: ${userProfile.value.value.relations}"
                     )
                     _uiState.update {
                         it.copy(
                             currentUserId = userId,
                             userProfile = userProfile.value,
-                            relationships = userProfile.value.relations?.map {
+                            relationships = userProfile.value.value.relations?.map {
                                 async {
                                     val userProfile =
                                         revoltAccountsRepository.fetchUserInformation(

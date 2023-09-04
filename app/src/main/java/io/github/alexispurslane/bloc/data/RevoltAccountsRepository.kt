@@ -2,6 +2,9 @@ package io.github.alexispurslane.bloc.data
 
 import android.util.Log
 import androidx.annotation.Keep
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -84,7 +87,7 @@ class RevoltAccountsRepository @Inject constructor(
             )
         }
 
-    private var userProfileCache: MutableMap<String, RevoltUser> =
+    private val _users: MutableMap<String, MutableState<RevoltUser>> =
         mutableMapOf()
 
     var webPushSubscription: MutableStateFlow<WebPushSubscriptionResponse?> =
@@ -99,6 +102,36 @@ class RevoltAccountsRepository @Inject constructor(
     }
 
     private fun onWebSocketEvent(event: RevoltWebSocketResponse): Boolean {
+        when (event) {
+            is RevoltWebSocketResponse.UserUpdate -> {
+                _users[event.userId]?.let { old ->
+                    old.value = old.value.copy(
+                        userId = event.data.userId ?: old.value.userId,
+                        userName = event.data.userName ?: old.value.userName,
+                        discriminator = event.data.discriminator
+                            ?: old.value.discriminator,
+                        displayName = event.data.displayName
+                            ?: old.value.displayName,
+                        avatar = event.data.avatar ?: old.value.avatar,
+                        relations = event.data.relations
+                            ?: old.value.relations,
+                        badges = event.data.badges ?: old.value.badges,
+                        status = event.data.status ?: old.value.status,
+                        profile = event.data.profile ?: old.value.profile,
+                        flags = event.data.flags ?: old.value.flags,
+                        privileged = event.data.privileged
+                            ?: old.value.privileged,
+                        botInformation = event.data.botInformation
+                            ?: old.value.botInformation,
+                        relationship = event.data.relationship
+                            ?: old.value.relationship,
+                        online = event.data.online ?: old.value.online,
+                    )
+                }
+            }
+
+            else -> {}
+        }
         return true
     }
 
@@ -180,11 +213,11 @@ class RevoltAccountsRepository @Inject constructor(
         }
     }
 
-    suspend fun fetchUserInformation(userId: String = "@me"): Either<RevoltUser, String> {
+    suspend fun fetchUserInformation(userId: String = "@me"): Either<State<RevoltUser>, String> {
         val userSession = userSessionFlow.first()
         if (userSession.sessionToken != null) {
-            if (userProfileCache.containsKey(userId)) {
-                return Either.Success(userProfileCache[userId]!!)
+            if (_users.containsKey(userId)) {
+                return Either.Success(_users[userId]!!)
             }
             try {
                 val res = RevoltApiModule.service()
@@ -200,12 +233,12 @@ class RevoltAccountsRepository @Inject constructor(
                             )
                         if (res2.isSuccessful) {
                             user.profile = res2.body()!!
-                            userProfileCache[userId] = user
-                            return Either.Success(user)
+                            _users[userId] = mutableStateOf(user)
+                            return Either.Success(_users[userId]!!)
                         }
                     } else {
-                        userProfileCache[userId] = user
-                        return Either.Success(user)
+                        _users[userId] = mutableStateOf(user)
+                        return Either.Success(_users[userId]!!)
                     }
                 }
 

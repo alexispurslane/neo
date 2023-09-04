@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,9 +47,9 @@ import io.github.alexispurslane.bloc.data.network.models.RevoltUser
 @Composable
 fun UserCard(
     modifier: Modifier = Modifier,
-    userProfile: RevoltUser,
+    userProfile: State<RevoltUser>,
 ) {
-    val backgroundImage = userProfile.profile?.background
+    val backgroundImage = userProfile.value.profile?.background
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth(1f)
@@ -76,7 +77,7 @@ fun UserCard(
                 }
                 UserRow(
                     modifier = Modifier.padding(30.dp),
-                    userProfile = userProfile
+                    userProfile = userProfile.value
                 )
             }
 
@@ -97,7 +98,7 @@ fun UserCard(
                     )
                 )
                 Text(
-                    userProfile.profile?.content ?: "",
+                    userProfile.value.profile?.content ?: "",
                     fontSize = 18.sp,
                     textAlign = TextAlign.Start
                 )

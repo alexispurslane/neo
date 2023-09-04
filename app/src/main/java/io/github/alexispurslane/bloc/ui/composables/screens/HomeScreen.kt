@@ -50,7 +50,7 @@ fun WelcomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "Welcome, ${uiState.userInfo?.userName}!",
+                "Welcome, ${uiState.userInfo?.value?.userName}!",
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center,
@@ -88,7 +88,7 @@ fun HomeScreen(
                 onNavigate = { type, serverId, channelId ->
                     when (type) {
                         "settings" -> navController.navigate("settings")
-                        "profile" -> navController.navigate("profile/${uiState.userInfo?.userId ?: "@me"}")
+                        "profile" -> navController.navigate("profile/${uiState.userInfo?.value?.userId ?: "@me"}")
                         "channel" -> {
                             homeScreenViewModel.saveLast(
                                 serverId,
@@ -102,7 +102,7 @@ fun HomeScreen(
                     reset()
                 },
                 lastServerChannels = uiState.lastServerChannels,
-                userProfileIcon = uiState.userInfo?.avatar
+                userProfileIcon = uiState.userInfo?.value?.avatar
             )
         },
         middle = {

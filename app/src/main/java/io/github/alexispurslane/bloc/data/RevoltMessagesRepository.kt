@@ -29,20 +29,20 @@ class RevoltMessagesRepository @Inject constructor(
     private val channelMessages: MutableMap<String, SnapshotStateList<RevoltMessage>> =
         mutableMapOf()
 
-    private val existingMessageIds: HashSet<String> = hashSetOf()
+    private val existingMessageIds: HashMap<String, Int> = hashMapOf()
 
     private val USER_MENTION_REGEX by lazy { Regex("<@([a-zA-Z0-9]+)>") }
     private suspend fun treatMessage(message: RevoltMessage): RevoltMessage =
         coroutineScope {
-            val userInformation = (message.mentionedIds?.plus(
-                message.systemEventMessage?.let { USER_MENTION_REGEX.find(it.message) }?.groupValues
-                    ?: emptyList()
-            ))?.map { userId: String ->
+            val userInformation = (message.mentionedIds.orEmpty().plus(
+                message.systemEventMessage?.let { USER_MENTION_REGEX.find(it.message) }?.groupValues.orEmpty()
+            )).map { userId: String ->
                 async {
                     when (val u =
                         revoltAccountsRepository.fetchUserInformation(userId)) {
                         is Either.Success -> {
-                            u.value.userId to u.value
+                            val user = u.value
+                            user.value.userId to user.value
                         }
 
                         is Either.Error -> {
@@ -50,7 +50,7 @@ class RevoltMessagesRepository @Inject constructor(
                         }
                     }
                 }
-            }?.awaitAll()?.filterNotNull()?.toMap() ?: emptyMap()
+            }.awaitAll().filterNotNull().toMap()
             val newContent = message.content?.replace(USER_MENTION_REGEX) {
                 val user = userInformation[it.groupValues[1]]
                 "[@${user?.userName ?: it.value}](bloc://profile/${user?.userId})"
@@ -80,7 +80,67 @@ class RevoltMessagesRepository @Inject constructor(
                                 channelMessages[event.message.channelId]?.apply {
                                     add(0, treatMessage(event.message))
                                 }
-                                existingMessageIds.add(event.message.messageId)
+                                existingMessageIds.set(
+                                    event.message.messageId,
+                                    (channelMessages[event.message.channelId]?.size
+                                        ?: 0) + 1
+                                )
+                            }
+                        }
+                    }
+
+                    is RevoltWebSocketResponse.MessageDelete -> {
+                        existingMessageIds[event.messageId]?.let { reverseIndex ->
+                            channelMessages[event.channelId]?.let { channel ->
+                                val index = channel.size - (reverseIndex - 1)
+                                channel.apply {
+                                    removeAt(index)
+                                }
+                            }
+                        }
+                    }
+
+                    is RevoltWebSocketResponse.MessageUpdate -> {
+                        existingMessageIds[event.messageId]?.let { reverseIndex ->
+                            channelMessages[event.channelId]?.let { channel ->
+                                val index = channel.size - (reverseIndex - 1)
+                                channel.apply {
+                                    val old = get(index)
+                                    set(
+                                        index, old.copy(
+                                            messageId = event.data.messageId
+                                                ?: old.messageId,
+                                            nonce = event.data.nonce
+                                                ?: old.nonce,
+                                            channelId = event.data.channelId
+                                                ?: old.channelId,
+                                            authorId = event.data.authorId
+                                                ?: old.authorId,
+                                            webhook = event.data.webhook
+                                                ?: old.webhook,
+                                            content = event.data.content
+                                                ?: old.content,
+                                            systemEventMessage = event.data.systemEventMessage
+                                                ?: old.systemEventMessage,
+                                            attachments = event.data.attachments
+                                                ?: old.attachments,
+                                            edited = event.data.edited
+                                                ?: old.edited,
+                                            embeds = event.data.embeds
+                                                ?: old.embeds,
+                                            mentionedIds = event.data.mentionedIds
+                                                ?: old.mentionedIds,
+                                            replyIds = event.data.replyIds
+                                                ?: old.replyIds,
+                                            reactions = event.data.reactions
+                                                ?: old.reactions,
+                                            interactions = event.data.interactions
+                                                ?: old.interactions,
+                                            masquerade = event.data.masquerade
+                                                ?: old.masquerade
+                                        )
+                                    )
+                                }
                             }
                         }
                     }
@@ -186,8 +246,9 @@ class RevoltMessagesRepository @Inject constructor(
                                 addAll(body)
                             }
                         }
-                        existingMessageIds.addAll(
-                            body.map { it.messageId }
+                        val len = channelMessages[channelId]?.size ?: 0
+                        existingMessageIds.putAll(
+                            body.mapIndexed { i, m -> m.messageId to (body.size - i + len) }
                         )
                         Either.Success(channelMessages[channelId]!!)
                     } else if (errorBody != null) {

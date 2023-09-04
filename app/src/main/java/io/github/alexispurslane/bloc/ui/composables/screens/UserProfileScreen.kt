@@ -55,7 +55,7 @@ fun UserProfileScreen(
                     UserRow(
                         modifier = Modifier.padding(vertical = 10.dp),
                         iconSize = 40.dp,
-                        userProfile = relationship.value,
+                        userProfile = relationship.value.value,
                         relationship = relationship.key
                     )
                 }

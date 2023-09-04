@@ -256,7 +256,7 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("users") val users: List<RevoltUser>,
         @param:JsonProperty("servers") val servers: List<RevoltServer>,
         @param:JsonProperty("channels") val channels: List<RevoltChannel>,
-        @param:JsonProperty("emojis") val emojis: List<Emoji>,
+        @param:JsonProperty("emojis") val emojis: List<RevoltEmoji>,
         @param:JsonProperty("members") val members: JsonNode
     ) : RevoltWebSocketResponse()
 
@@ -467,7 +467,7 @@ sealed class RevoltWebSocketResponse constructor() {
         @param:JsonProperty("type") val type: String,
         @JsonProperty("emoji")
         @field:JsonUnwrapped
-        val emoji: Emoji
+        val emoji: RevoltEmoji
     ) : RevoltWebSocketResponse()
 
     @Keep

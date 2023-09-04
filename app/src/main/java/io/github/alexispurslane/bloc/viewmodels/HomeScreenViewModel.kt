@@ -1,6 +1,7 @@
 package io.github.alexispurslane.bloc.viewmodels
 
 import android.util.Log
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.ViewModel
@@ -26,7 +27,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class HomeUiState(
-    val userInfo: RevoltUser? = null,
+    val userInfo: State<RevoltUser>? = null,
     val servers: SnapshotStateMap<String, RevoltServer> = mutableStateMapOf(),
     val channels: SnapshotStateMap<String, RevoltChannel> = mutableStateMapOf(),
     val autumnUrl: String? = null,

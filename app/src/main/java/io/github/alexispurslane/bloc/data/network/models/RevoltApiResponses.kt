@@ -340,7 +340,7 @@ sealed class RevoltChannel private constructor() {
 
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-data class Emoji(
+data class RevoltEmoji(
     @param:JsonProperty("_id") val emojiId: String,
     @param:JsonProperty("parent") val parent: EmojiParent,
     @param:JsonProperty("creator_id") val creatorId: String,
