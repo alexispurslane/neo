@@ -164,13 +164,13 @@ class ServerChannelViewModel @Inject constructor(
         channelId: String,
         prevState: ServerChannelUiState
     ): ServerChannelUiState {
-        val channelInfo = revoltChannelsRepository.channels.value[channelId]
+        val channelInfo = revoltChannelsRepository.channels[channelId]
         if (channelInfo !is RevoltChannel.TextChannel) return prevState.copy(
             error = "Uh oh! Unable to locate channel"
         )
 
         val serverInfo =
-            revoltServersRepository.servers.value[channelInfo.serverId]
+            revoltServersRepository.servers[channelInfo.serverId]
         if (serverInfo == null) return prevState.copy(error = "Uh oh! Unable to locate server")
 
         val membersInfo =

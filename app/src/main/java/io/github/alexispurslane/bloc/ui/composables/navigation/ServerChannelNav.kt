@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,8 +59,8 @@ import java.util.Locale
 
 @Composable
 fun ServerChannelNav(
-    servers: Map<String, RevoltServer>,
-    channels: Map<String, RevoltChannel>,
+    servers: SnapshotStateMap<String, RevoltServer>,
+    channels: SnapshotStateMap<String, RevoltChannel>,
     startingServerId: String = "",
     onNavigate: (String, String, String) -> Unit,
     lastServerChannels: Map<String, String>,
@@ -108,6 +109,7 @@ fun ServerChannelNav(
                             LocalContext.current,
                             userProfileIcon
                         ),
+                        contentScale = ContentScale.Crop,
                         contentDescription = "User Avatar"
                     )
                 } else {

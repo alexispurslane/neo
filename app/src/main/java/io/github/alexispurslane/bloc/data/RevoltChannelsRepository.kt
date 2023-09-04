@@ -1,16 +1,14 @@
 package io.github.alexispurslane.bloc.data
 
 import android.util.Log
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,10 +17,7 @@ import javax.inject.Singleton
 @Singleton
 class RevoltChannelsRepository @Inject constructor(
 ) {
-    var _channels: MutableStateFlow<Map<String, RevoltChannel>> = MutableStateFlow(
-        emptyMap()
-    )
-    val channels: StateFlow<Map<String, RevoltChannel>> = _channels.asStateFlow()
+    val channels: SnapshotStateMap<String, RevoltChannel> = mutableStateMapOf()
 
     init {
         GlobalScope.launch(Dispatchers.IO) {
@@ -31,6 +26,7 @@ class RevoltChannelsRepository @Inject constructor(
             }
         }
     }
+
     private fun createChannelMapping(channel: RevoltChannel): Pair<String, RevoltChannel> {
         return when (channel) {
             is RevoltChannel.SavedMessages -> {
@@ -56,20 +52,34 @@ class RevoltChannelsRepository @Inject constructor(
     }
 
     private fun onWebSocketEvent(event: RevoltWebSocketResponse): Boolean {
-        _channels.update { prev ->
+        val repo = this
+        channels.apply {
             when (event) {
                 is RevoltWebSocketResponse.Ready -> {
                     Log.d("CHANNEL REPO", "Received channels!")
-                    event.channels.associate(this::createChannelMapping)
+                    putAll(
+                        event.channels.associate(repo::createChannelMapping)
+                    )
                 }
+
                 is RevoltWebSocketResponse.ChannelCreate -> {
-                    prev.plus(createChannelMapping(event.channel))
+                    val mapping = createChannelMapping(event.channel)
+                    put(mapping.first, mapping.second)
                 }
+
+                is RevoltWebSocketResponse.ChannelDelete -> {
+                    remove(event.channelId)
+                }
+
                 is RevoltWebSocketResponse.ChannelUpdate -> {
                     Log.w("CHANNEL REPO", "channel edited (not implemented)")
-                    prev
+                    /*set(
+                        event.channelId,
+                        get(event.channelId)?.update(event.data)
+                    )*/
                 }
-                else -> prev
+
+                else -> {}
             }
         }
         return true

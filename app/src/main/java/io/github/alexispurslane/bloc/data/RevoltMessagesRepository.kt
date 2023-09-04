@@ -26,13 +26,10 @@ import javax.inject.Singleton
 class RevoltMessagesRepository @Inject constructor(
     private val revoltAccountsRepository: RevoltAccountsRepository
 ) {
-    var _channelMessages: MutableMap<String, SnapshotStateList<RevoltMessage>> =
+    private val channelMessages: MutableMap<String, SnapshotStateList<RevoltMessage>> =
         mutableMapOf()
-        private set
-    val channelMessages
-        get(): Map<String, SnapshotStateList<RevoltMessage>> = _channelMessages
 
-    val existingMessageIds: HashSet<String> = hashSetOf()
+    private val existingMessageIds: HashSet<String> = hashSetOf()
 
     private val USER_MENTION_REGEX by lazy { Regex("<@([a-zA-Z0-9]+)>") }
     private suspend fun treatMessage(message: RevoltMessage): RevoltMessage =
@@ -80,7 +77,7 @@ class RevoltMessagesRepository @Inject constructor(
                     is RevoltWebSocketResponse.Message -> {
                         launch {
                             if (!existingMessageIds.contains(event.message.messageId)) {
-                                _channelMessages[event.message.channelId]?.apply {
+                                channelMessages[event.message.channelId]?.apply {
                                     add(0, treatMessage(event.message))
                                 }
                                 existingMessageIds.add(event.message.messageId)
@@ -170,9 +167,9 @@ class RevoltMessagesRepository @Inject constructor(
                     val errorBody =
                         (res.errorBody() ?: res.errorBody())?.string()
                     if (res.isSuccessful) {
-                        if (_channelMessages.containsKey(channelId)) {
+                        if (channelMessages.containsKey(channelId)) {
                             if (nearby == null && includeUsers == null && sort != "Relevance" && body.isNotEmpty()) {
-                                _channelMessages[channelId]!!.apply {
+                                channelMessages[channelId]!!.apply {
                                     integrateMessages(
                                         this,
                                         body,
@@ -183,7 +180,7 @@ class RevoltMessagesRepository @Inject constructor(
                                 }
                             }
                         } else {
-                            _channelMessages.getOrPut(
+                            channelMessages.getOrPut(
                                 channelId,
                                 { mutableStateListOf() }).apply {
                                 addAll(body)

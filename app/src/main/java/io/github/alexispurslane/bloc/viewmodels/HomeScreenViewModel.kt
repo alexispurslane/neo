@@ -1,11 +1,12 @@
 package io.github.alexispurslane.bloc.viewmodels
 
 import android.util.Log
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.Either
-import io.github.alexispurslane.bloc.MainApplication
 import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
 import io.github.alexispurslane.bloc.data.RevoltChannelsRepository
 import io.github.alexispurslane.bloc.data.RevoltServersRepository
@@ -16,20 +17,18 @@ import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 import io.github.alexispurslane.bloc.data.network.models.RevoltServer
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class HomeUiState(
     val userInfo: RevoltUser? = null,
-    val servers: Map<String, RevoltServer> = emptyMap(),
-    val channels: Map<String, RevoltChannel> = emptyMap(),
+    val servers: SnapshotStateMap<String, RevoltServer> = mutableStateMapOf(),
+    val channels: SnapshotStateMap<String, RevoltChannel> = mutableStateMapOf(),
     val autumnUrl: String? = null,
     val lastServer: String? = null,
     val lastChannel: String? = null,
@@ -39,9 +38,8 @@ data class HomeUiState(
 @HiltViewModel
 class HomeScreenViewModel @Inject constructor(
     private val revoltAccountRepository: RevoltAccountsRepository,
-    private val revoltServersRepository: RevoltServersRepository,
-    private val revoltChannelsRepository: RevoltChannelsRepository,
-    private val application: MainApplication
+    revoltServersRepository: RevoltServersRepository,
+    revoltChannelsRepository: RevoltChannelsRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -54,33 +52,22 @@ class HomeScreenViewModel @Inject constructor(
                 if (userSession.instanceApiUrl != null) {
                     if (userSession.sessionToken != null) {
                         initializeSession(userSession)
+                        Log.d(
+                            "USER HOME",
+                            "${revoltServersRepository.servers.size}, ${revoltChannelsRepository.channels.size}"
+                        )
+                        _uiState.update {
+                            it.copy(
+                                servers = revoltServersRepository.servers,
+                                channels = revoltChannelsRepository.channels
+                            )
+                        }
                     }
-                }
-            }
-        }
-
-        viewModelScope.launch {
-            revoltServersRepository.servers.collectLatest { servers ->
-                _uiState.update { prevState ->
-                    prevState.copy(
-                        servers = servers
-                    )
-                }
-            }
-        }
-
-        viewModelScope.launch {
-            revoltChannelsRepository.channels.collectLatest { channels ->
-                _uiState.update { prevState ->
-                    prevState.copy(
-                        channels = channels
-                    )
                 }
             }
         }
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
     private suspend fun initializeWebSockets(userSession: UserSession) =
         coroutineScope {
             if (RevoltWebSocketModule.setWebSocketUrlAndToken(
@@ -112,7 +99,7 @@ class HomeScreenViewModel @Inject constructor(
                         autumnUrl = userSession.autumnUrl,
                         lastServer = it.lastServer ?: lastServer,
                         lastChannel = it.lastChannel ?: lastChannel,
-                        lastServerChannels = userSession.preferences
+                        lastServerChannels = userSession.preferences,
                     )
                 }
             }

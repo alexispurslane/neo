@@ -1,6 +1,8 @@
 package io.github.alexispurslane.bloc.data
 
 import android.util.Log
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
@@ -10,11 +12,7 @@ import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import javax.inject.Inject
@@ -25,11 +23,8 @@ import javax.inject.Singleton
 class RevoltServersRepository @Inject constructor(
     private val revoltAccountsRepository: RevoltAccountsRepository,
 ) {
-    private var _servers: MutableStateFlow<Map<String, RevoltServer>> =
-        MutableStateFlow(
-            emptyMap()
-        )
-    val servers: StateFlow<Map<String, RevoltServer>> = _servers.asStateFlow()
+    val servers: SnapshotStateMap<String, RevoltServer> =
+        mutableStateMapOf()
 
     init {
         GlobalScope.launch(Dispatchers.IO) {
@@ -40,53 +35,59 @@ class RevoltServersRepository @Inject constructor(
     }
 
     private fun onWebSocketEvent(event: RevoltWebSocketResponse): Boolean {
-        _servers.update { prev ->
+        servers.apply {
             when (event) {
                 is RevoltWebSocketResponse.Ready -> {
                     Log.d("SERVER REPO", "Recieved servers!")
-                    event.servers.associate {
-                        it.serverId to it
-                    }
+                    putAll(
+                        event.servers.associateBy { it.serverId }
+                    )
                 }
+
                 is RevoltWebSocketResponse.ServerCreate -> {
-                    prev.plus(event.server.serverId to event.server)
+                    put(event.server.serverId, event.server)
                 }
+
                 is RevoltWebSocketResponse.ServerDelete -> {
-                    prev.minus(event.serverId)
+                    remove(event.serverId)
                 }
+
                 is RevoltWebSocketResponse.ServerUpdate -> {
-                    val prevServer = prev[event.serverId]
+                    val prevServer = get(event.serverId)
                     if (prevServer != null) {
-                        prev.plus(
-                            event.serverId to prevServer.copy(
-                                event.data.serverId ?: prevServer.serverId,
-                                event.data.ownerId ?: prevServer.ownerId,
-                                event.data.name ?: prevServer.name,
-                                event.data.description
+                        set(
+                            event.serverId, prevServer.copy(
+                                serverId = event.data.serverId
+                                    ?: prevServer.serverId,
+                                ownerId = event.data.ownerId
+                                    ?: prevServer.ownerId,
+                                name = event.data.name ?: prevServer.name,
+                                description = event.data.description
                                     ?: prevServer.description,
-                                event.data.channelsIds
+                                channelsIds = event.data.channelsIds
                                     ?: prevServer.channelsIds,
-                                event.data.categories ?: prevServer.categories,
-                                event.data.systemMessagesConfig
+                                categories = event.data.categories
+                                    ?: prevServer.categories,
+                                systemMessagesConfig = event.data.systemMessagesConfig
                                     ?: prevServer.systemMessagesConfig,
-                                event.data.roles ?: prevServer.roles,
-                                event.data.defaultPermissions
+                                roles = event.data.roles ?: prevServer.roles,
+                                defaultPermissions = event.data.defaultPermissions
                                     ?: prevServer.defaultPermissions,
-                                event.data.icon ?: prevServer.icon,
-                                event.data.banner ?: prevServer.banner,
-                                event.data.flags ?: prevServer.flags,
-                                event.data.nsfw ?: prevServer.nsfw,
-                                event.data.analytics ?: prevServer.analytics,
-                                event.data.discoverable
+                                icon = event.data.icon ?: prevServer.icon,
+                                banner = event.data.banner
+                                    ?: prevServer.banner,
+                                flags = event.data.flags ?: prevServer.flags,
+                                nsfw = event.data.nsfw ?: prevServer.nsfw,
+                                analytics = event.data.analytics
+                                    ?: prevServer.analytics,
+                                discoverable = event.data.discoverable
                                     ?: prevServer.discoverable
                             )
                         )
-                    } else {
-                        prev
                     }
                 }
 
-                else -> prev
+                else -> {}
             }
         }
         return true
