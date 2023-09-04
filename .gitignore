@@ -4,3 +4,4 @@
 .idea/*
 app/release/*
 local.properties
+bloc-keystore.jks
