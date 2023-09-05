@@ -1,5 +1,6 @@
 package io.github.alexispurslane.bloc.data
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import io.github.alexispurslane.bloc.Either
@@ -24,7 +25,8 @@ import javax.inject.Singleton
 @OptIn(DelicateCoroutinesApi::class)
 @Singleton
 class RevoltMessagesRepository @Inject constructor(
-    private val revoltAccountsRepository: RevoltAccountsRepository
+    private val revoltAccountsRepository: RevoltAccountsRepository,
+    private val revoltEmojiRepository: RevoltEmojiRepository
 ) {
     private val channelMessages: MutableMap<String, SnapshotStateList<RevoltMessage>> =
         mutableMapOf()
@@ -32,8 +34,18 @@ class RevoltMessagesRepository @Inject constructor(
     private val existingMessageIds: HashMap<String, Int> = hashMapOf()
 
     private val USER_MENTION_REGEX by lazy { Regex("<@([a-zA-Z0-9]+)>") }
+    private val EMOJI_REGEX by lazy { Regex(":([a-zA-Z0-9_]+):") }
     private suspend fun treatMessage(message: RevoltMessage): RevoltMessage =
         coroutineScope {
+            // Doing this makes no sense till all the initial emoji are loaded
+            // (we don't have to wait the infinite time that it would take for
+            // all emoji that could be added later to be added, because messages
+            // will only be expected to render those emoji after they're added,
+            // whereas here we're trying to synchronize around a race condition
+            // between initial message processing and loading all the emojis that
+            // should already exist for those messages, so we need to force messages
+            // to be processed *after* the emoji are loaded)
+            revoltEmojiRepository.deferredUntilEmojiLoaded.await()
             val userInformation = (message.mentionedIds.orEmpty().plus(
                 message.systemEventMessage?.let { USER_MENTION_REGEX.find(it.message) }?.groupValues.orEmpty()
             )).map { userId: String ->
@@ -54,6 +66,11 @@ class RevoltMessagesRepository @Inject constructor(
             val newContent = message.content?.replace(USER_MENTION_REGEX) {
                 val user = userInformation[it.groupValues[1]]
                 "[@${user?.userName ?: it.value}](bloc://profile/${user?.userId})"
+            }?.replace(EMOJI_REGEX) {
+                revoltEmojiRepository.emojiLocations[it.groupValues[1]]?.let { location ->
+                    Log.d("MESSAGE REPO", location)
+                    "![$it](file://$location)"
+                } ?: it.value
             }
             message.systemEventMessage?.let {
                 it.message =
@@ -71,7 +88,7 @@ class RevoltMessagesRepository @Inject constructor(
         }
 
     init {
-        GlobalScope.launch(Dispatchers.IO) {
+        GlobalScope.launch(Dispatchers.Default) {
             RevoltWebSocketModule.eventFlow.collect { event ->
                 when (event) {
                     is RevoltWebSocketResponse.Message -> {

@@ -198,29 +198,31 @@ class ServerChannelViewModel @Inject constructor(
         )
     }
 
-    suspend fun fetchEarlierMessages() {
-        val len = uiState.value.messages.size
-        Log.d(
-            "CHANNEL VIEW",
-            "Fetching earlier messages (current message count: $len)"
-        )
-        val last = uiState.value.messages.lastOrNull()
-        if (uiState.value.channelId != null && last != null) {
-            revoltMessagesRepository.fetchChannelMessages(
-                uiState.value.channelId!!,
-                limit = 50,
-                before = last.messageId
+    fun fetchEarlierMessages() {
+        viewModelScope.launch(Dispatchers.Default) {
+            val len = uiState.value.messages.size
+            Log.d(
+                "CHANNEL VIEW",
+                "Fetching earlier messages (current message count: $len)"
             )
-        }
-        val lenAfter = uiState.value.messages.size
-        if (lenAfter - len < 49) {
-            _uiState.update {
-                it.copy(
-                    atBeginning = true
+            val last = uiState.value.messages.lastOrNull()
+            if (uiState.value.channelId != null && last != null) {
+                revoltMessagesRepository.fetchChannelMessages(
+                    uiState.value.channelId!!,
+                    limit = 50,
+                    before = last.messageId
                 )
             }
+            val lenAfter = uiState.value.messages.size
+            if (lenAfter - len < 49) {
+                _uiState.update {
+                    it.copy(
+                        atBeginning = true
+                    )
+                }
+            }
+            Log.d("CHANNEL VIEW", "post-request message count: $len")
         }
-        Log.d("CHANNEL VIEW", "post-request message count: $len")
     }
 
     fun onDialogDismiss() {

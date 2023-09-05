@@ -6,7 +6,8 @@ import kotlinx.coroutines.runBlocking
 
 object RevoltAutumnModule {
 
-    private var autumnUrl: String? = null
+    var autumnUrl: String? = null
+        private set
 
     fun setUrl(url: String) {
         autumnUrl = url
