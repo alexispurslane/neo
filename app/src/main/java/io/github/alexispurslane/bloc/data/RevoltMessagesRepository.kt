@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import io.github.alexispurslane.bloc.Either
+import io.github.alexispurslane.bloc.data.local.EmojiMap
 import io.github.alexispurslane.bloc.data.local.RevoltAutumnModule
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
@@ -66,7 +67,6 @@ class RevoltMessagesRepository @Inject constructor(
                     }
                 }
             }.awaitAll().filterNotNull().toMap()
-            val scope = this
             val newContent = message.content?.replace(USER_MENTION_REGEX) {
                 val user = userInformation[it.groupValues[1]]
                 "[@${user?.userName ?: it.value}](bloc://profile/${user?.userId})"
@@ -84,11 +84,14 @@ class RevoltMessagesRepository @Inject constructor(
                     }
                 }.toList().awaitAll().filterNotNull().toMap()
                 emojiMatches.fold(withMentions) { acc, matchResult ->
-                    val location = emojis[matchResult.groupValues[1]]
+                    val name = matchResult.groupValues[1]
+                    val location = emojis[name]
                     acc.replaceRange(
                         matchResult.range,
                         if (location != null)
                             "![${matchResult.value}](${location})"
+                        else if (EmojiMap.EMOJI_DICTIONARY[name] != null)
+                            EmojiMap.EMOJI_DICTIONARY[name]!!
                         else
                             matchResult.value
                     )
@@ -114,17 +117,23 @@ class RevoltMessagesRepository @Inject constructor(
             RevoltWebSocketModule.eventFlow.collect { event ->
                 when (event) {
                     is RevoltWebSocketResponse.Message -> {
-                        launch {
-                            if (!existingMessageIds.contains(event.message.messageId)) {
-                                channelMessages[event.message.channelId]?.apply {
-                                    add(0, treatMessage(event.message))
-                                }
-                                existingMessageIds.set(
-                                    event.message.messageId,
-                                    (channelMessages[event.message.channelId]?.size
-                                        ?: 0) + 1
-                                )
+                        Log.d(
+                            "MESSAGE REPO",
+                            "New message with id ${event.message.messageId} and content \"${event.message.content}\""
+                        )
+                        if (!existingMessageIds.contains(event.message.messageId)) {
+                            Log.d(
+                                "MESSAGE REPO",
+                                "Message not already received, adding it"
+                            )
+                            channelMessages[event.message.channelId]?.apply {
+                                add(0, treatMessage(event.message))
                             }
+                            existingMessageIds.set(
+                                event.message.messageId,
+                                (channelMessages[event.message.channelId]?.size
+                                    ?: 0) + 1
+                            )
                         }
                     }
 
@@ -288,6 +297,12 @@ class RevoltMessagesRepository @Inject constructor(
                         val len = channelMessages[channelId]?.size ?: 0
                         existingMessageIds.putAll(
                             body.mapIndexed { i, m -> m.messageId to (body.size - i + len) }
+                        )
+                        Log.d(
+                            "MESSAGE REPO",
+                            "Bulk message fetch, adding ids: ${
+                                body.map { it.messageId }.toList()
+                            }"
                         )
                         Either.Success(channelMessages[channelId]!!)
                     } else if (errorBody != null) {

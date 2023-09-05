@@ -97,8 +97,9 @@ fun UserCard(
                         fontFeatureSettings = "smcp"
                     )
                 )
-                Text(
-                    userProfile.value.profile?.content ?: "",
+
+                CustomizableMarkdownText(
+                    content = userProfile.value.profile?.content ?: "",
                     fontSize = 18.sp,
                     textAlign = TextAlign.Start
                 )

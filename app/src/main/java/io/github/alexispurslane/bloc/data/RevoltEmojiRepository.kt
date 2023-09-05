@@ -1,26 +1,22 @@
 package io.github.alexispurslane.bloc.data
 
-import android.content.Context
-import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import io.github.alexispurslane.bloc.MainApplication
+import io.github.alexispurslane.bloc.data.local.EmojiMap
 import io.github.alexispurslane.bloc.data.local.RevoltAutumnModule
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltEmoji
 import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -29,12 +25,24 @@ import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 import javax.net.ssl.HttpsURLConnection
+import kotlin.streams.toList
+
+
+enum class EmojiPack(val packName: String) {
+    FLUENT_3D("fluent-3d"),
+    FLUENT_COLOR("fluent-color"),
+    FLUENT_FLAT("fluent-flat"),
+    MUTANT("mutant"),
+    NOTO("noto"),
+    TWEMOJI("twemoji")
+}
 
 @OptIn(DelicateCoroutinesApi::class)
 @Singleton
 class RevoltEmojiRepository @Inject constructor(
     private val application: MainApplication,
 ) {
+    var currentEmojiPack = EmojiPack.MUTANT
     val deferredUntilEmojiLoaded = CompletableDeferred<Unit>()
 
     val emoji: SnapshotStateMap<String, RevoltEmoji> = mutableStateMapOf()
@@ -51,7 +59,7 @@ class RevoltEmojiRepository @Inject constructor(
                         )
                         val files = event.emojis.map {
                             async {
-                                downloadEmoji(it.emojiId)?.let { path ->
+                                downloadCustomEmoji(it.emojiId)?.let { path ->
                                     it.name to path
                                 }
                             }
@@ -80,7 +88,7 @@ class RevoltEmojiRepository @Inject constructor(
                             put(event.emoji.emojiId, event.emoji)
                         }
                         launch {
-                            val file = downloadEmoji(event.emoji.name)
+                            val file = downloadCustomEmoji(event.emoji.name)
                             if (file != null) {
                                 emojiLocations.apply {
                                     put(event.emoji.name, file)
@@ -101,6 +109,29 @@ class RevoltEmojiRepository @Inject constructor(
         }
     }
 
+    fun emojiUnicodeToCodepoint(input: String): String {
+        if (input.length == 1) {
+            return input.codePointAt(0).toString(16)
+        } else {
+            val pairs = input.codePoints().toList().mapIndexed { i, c ->
+                if (c in 0xd800..0xdbff) {
+                    val c2 = input.codePointAt(i + 1)
+                    if (c2 in 0xdc00..0xdfff) {
+                        (c - 0xd800) + 0x400 +
+                                (c2 - 0xdc00) +
+                                0x10000
+                    } else {
+                        null
+                    }
+                } else {
+                    c
+                }
+            }.filterNotNull()
+
+            return pairs.joinToString("-") { it.toString(16) }
+        }
+    }
+
     fun getEmoji(
         emojiIdOrName: String
     ): String? {
@@ -110,17 +141,24 @@ class RevoltEmojiRepository @Inject constructor(
             // One last check just to see if maybe it's referred to by ID but on this server
                 ?: emojiLocations[emoji[emojiIdOrName]?.name]
                 // Well, it's not on this server, or else we'd have it in our database, so it must be referred to by ID and from some other server, so go download it, or just return its location if already downloaded
-                ?: downloadEmoji(emojiIdOrName)
+                ?: downloadCustomEmoji(emojiIdOrName)
+        Log.d(
+            "EMOJI REPO",
+            "Got emoji $emojiIdOrName, location: $location"
+        )
         return location
     }
 
-    private fun downloadEmoji(emojiId: String): String? {
+    private fun downloadCustomEmoji(
+        emojiId: String,
+        urlBase: String = "${RevoltAutumnModule.autumnUrl}/emojis"
+    ): String? {
         return try {
             val cacheDir = application.cacheDir.absolutePath
             with(File(cacheDir, "emoji-$emojiId")) {
                 if (!exists()) {
                     val url =
-                        URL("${RevoltAutumnModule.autumnUrl}/emojis/$emojiId")
+                        URL("$urlBase/$emojiId")
                     val bitmap =
                         with(url.openConnection() as HttpsURLConnection) {
                             requestMethod = "GET"
@@ -144,7 +182,7 @@ class RevoltEmojiRepository @Inject constructor(
             }
             "$cacheDir/emoji-$emojiId"
         } catch (e: Exception) {
-            Log.e("EMOJI REPO", "Cannot download emoji: $e")
+            Log.e("EMOJI REPO", "Cannot download emoji $emojiId: $e")
             null
         }
     }

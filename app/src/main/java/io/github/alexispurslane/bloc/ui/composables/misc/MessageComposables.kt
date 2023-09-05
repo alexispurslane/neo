@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -80,7 +80,6 @@ import io.github.alexispurslane.bloc.data.network.models.Role
 import io.github.alexispurslane.bloc.viewmodels.ServerChannelUiState
 import io.github.alexispurslane.bloc.viewmodels.ServerChannelViewModel
 import kotlinx.coroutines.launch
-
 
 @Composable
 fun MessagesView(
@@ -284,7 +283,7 @@ fun Message(
                     )
                 }
                 if (message.content!!.isNotBlank()) {
-                    MessageContent(message.content)
+                    CustomizableMarkdownText(message.content)
                 }
                 if (message.attachments?.isNotEmpty() == true) {
                     var collapseState by remember { mutableStateOf(message.attachments.size > 2) }
@@ -308,24 +307,18 @@ fun Message(
                                     )
                                 when (autumnFile.metadata) {
                                     is RevoltFileMetadata.Image -> {
-                                        Box(
+                                        AsyncImage(
                                             modifier = Modifier
-                                                .aspectRatio(
-                                                    autumnFile.metadata.width.toFloat() / autumnFile.metadata.height.toFloat(),
-                                                    matchHeightConstraintsFirst = true
-                                                )
+                                                .height(256.dp)
                                                 .clip(MaterialTheme.shapes.large)
-                                                .height(200.dp)
                                                 .clickable {
                                                     if (url != null)
                                                         uriHandler.openUri(url)
-                                                }
-                                        ) {
-                                            AsyncImage(
-                                                model = url,
-                                                contentDescription = "image attachment $index"
-                                            )
-                                        }
+                                                },
+                                            model = url,
+                                            contentDescription = "image attachment $index",
+                                            contentScale = ContentScale.Fit
+                                        )
                                     }
 
                                     else -> {}
@@ -345,7 +338,7 @@ fun Message(
                 }
             }
         } else if (message.authorId == "00000000000000000000000000" && message.systemEventMessage != null) {
-            MessageContent(
+            CustomizableMarkdownText(
                 message.systemEventMessage.message,
                 fontWeight = FontWeight.Black,
                 color = Color.Gray,
@@ -356,7 +349,7 @@ fun Message(
 }
 
 @Composable
-fun MessageContent(
+fun CustomizableMarkdownText(
     content: String,
     color: Color = MaterialTheme.colorScheme.onBackground,
     fontSize: TextUnit = 18.sp,

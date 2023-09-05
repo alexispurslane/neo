@@ -84,8 +84,7 @@ class HomeScreenViewModel @Inject constructor(
     private suspend fun initializeSession(userSession: UserSession) {
         RevoltAutumnModule.setUrl(userSession.autumnUrl!!)
         RevoltApiModule.setBaseUrl(userSession.instanceApiUrl!!)
-        when (val userInfo =
-            revoltAccountRepository.fetchUserInformation()) {
+        when (val userInfo = revoltAccountRepository.fetchUserInformation()) {
             is Either.Success -> {
                 _uiState.update {
                     val lastServer = userSession.preferences["last_server"]
@@ -98,8 +97,8 @@ class HomeScreenViewModel @Inject constructor(
                     it.copy(
                         userInfo = userInfo.value,
                         autumnUrl = userSession.autumnUrl,
-                        lastServer = it.lastServer ?: lastServer,
-                        lastChannel = it.lastChannel ?: lastChannel,
+                        lastServer = lastServer ?: it.lastServer,
+                        lastChannel = lastChannel ?: it.lastChannel,
                         lastServerChannels = userSession.preferences,
                     )
                 }
