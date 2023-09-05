@@ -13,11 +13,13 @@ import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltEmoji
 import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -99,7 +101,20 @@ class RevoltEmojiRepository @Inject constructor(
         }
     }
 
-    fun downloadEmoji(emojiId: String): String? {
+    fun getEmoji(
+        emojiIdOrName: String
+    ): String? {
+        val location =
+            // Emoji referred to by name (so it's local on the server)
+            emojiLocations[emojiIdOrName]
+            // One last check just to see if maybe it's referred to by ID but on this server
+                ?: emojiLocations[emoji[emojiIdOrName]?.name]
+                // Well, it's not on this server, or else we'd have it in our database, so it must be referred to by ID and from some other server, so go download it, or just return its location if already downloaded
+                ?: downloadEmoji(emojiIdOrName)
+        return location
+    }
+
+    private fun downloadEmoji(emojiId: String): String? {
         return try {
             val cacheDir = application.cacheDir.absolutePath
             with(File(cacheDir, "emoji-$emojiId")) {

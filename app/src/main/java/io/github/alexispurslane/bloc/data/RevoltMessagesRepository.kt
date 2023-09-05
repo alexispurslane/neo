@@ -19,6 +19,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -48,7 +49,8 @@ class RevoltMessagesRepository @Inject constructor(
             // to be processed *after* the emoji are loaded)
             revoltEmojiRepository.deferredUntilEmojiLoaded.await()
             val userInformation = (message.mentionedIds.orEmpty().plus(
-                message.systemEventMessage?.let { USER_MENTION_REGEX.find(it.message) }?.groupValues.orEmpty()
+                message.systemEventMessage?.let { USER_MENTION_REGEX.findAll(it.message) }
+                    ?.map { it.groupValues[1] }.orEmpty()
             )).map { userId: String ->
                 async {
                     when (val u =
@@ -64,21 +66,32 @@ class RevoltMessagesRepository @Inject constructor(
                     }
                 }
             }.awaitAll().filterNotNull().toMap()
+            val scope = this
             val newContent = message.content?.replace(USER_MENTION_REGEX) {
                 val user = userInformation[it.groupValues[1]]
                 "[@${user?.userName ?: it.value}](bloc://profile/${user?.userId})"
-            }?.replace(EMOJI_REGEX) {
-                val capture = it.groupValues[1]
-                Log.d("MESSAGE REPO", "Found emoji: $capture")
-                val localEmoji = (revoltEmojiRepository.emojiLocations[capture]
-                    ?: revoltEmojiRepository.emojiLocations[revoltEmojiRepository.emoji[capture]?.name])?.let { location ->
-                    "![$it](file://$location)"
-                }
-                if (localEmoji != null) {
-                    localEmoji
-                } else {
-                    val location = revoltEmojiRepository.downloadEmoji(capture)
-                    "![$it](file://$location)"
+            }?.let { withMentions ->
+                val emojiMatches = EMOJI_REGEX.findAll(withMentions)
+                val emojis = emojiMatches.map {
+                    async {
+                        val location =
+                            revoltEmojiRepository.getEmoji(it.groupValues[1])
+                        if (location != null) {
+                            it.groupValues[1] to location
+                        } else {
+                            null
+                        }
+                    }
+                }.toList().awaitAll().filterNotNull().toMap()
+                emojiMatches.fold(withMentions) { acc, matchResult ->
+                    val location = emojis[matchResult.groupValues[1]]
+                    acc.replaceRange(
+                        matchResult.range,
+                        if (location != null)
+                            "![${matchResult.value}](${location})"
+                        else
+                            matchResult.value
+                    )
                 }
             }
             message.systemEventMessage?.let {
