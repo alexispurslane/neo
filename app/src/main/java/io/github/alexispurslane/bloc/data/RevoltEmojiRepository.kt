@@ -56,13 +56,17 @@ class RevoltEmojiRepository @Inject constructor(
                         }.awaitAll().filterNotNull().toMap()
                         withContext(Dispatchers.Main) {
                             emoji.apply {
-                                putAll(event.emojis.associateBy { it.name })
+                                putAll(event.emojis.associateBy { it.emojiId })
                             }
                             emojiLocations.apply {
                                 putAll(files)
                             }
+                            deferredUntilEmojiLoaded.complete(Unit)
+                            Log.d(
+                                "EMOJI REPO",
+                                "Loaded ${emojiLocations.size} emoji: ${emojiLocations.keys.toList()}"
+                            )
                         }
-                        deferredUntilEmojiLoaded.complete(Unit)
                     }
 
                     is RevoltWebSocketResponse.EmojiCreate -> {
@@ -95,7 +99,7 @@ class RevoltEmojiRepository @Inject constructor(
         }
     }
 
-    private fun downloadEmoji(emojiId: String): String? {
+    fun downloadEmoji(emojiId: String): String? {
         return try {
             val cacheDir = application.cacheDir.absolutePath
             with(File(cacheDir, "emoji-$emojiId")) {

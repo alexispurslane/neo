@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import io.github.alexispurslane.bloc.Either
+import io.github.alexispurslane.bloc.data.local.RevoltAutumnModule
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
@@ -67,10 +68,18 @@ class RevoltMessagesRepository @Inject constructor(
                 val user = userInformation[it.groupValues[1]]
                 "[@${user?.userName ?: it.value}](bloc://profile/${user?.userId})"
             }?.replace(EMOJI_REGEX) {
-                revoltEmojiRepository.emojiLocations[it.groupValues[1]]?.let { location ->
-                    Log.d("MESSAGE REPO", location)
+                val capture = it.groupValues[1]
+                Log.d("MESSAGE REPO", "Found emoji: $capture")
+                val localEmoji = (revoltEmojiRepository.emojiLocations[capture]
+                    ?: revoltEmojiRepository.emojiLocations[revoltEmojiRepository.emoji[capture]?.name])?.let { location ->
                     "![$it](file://$location)"
-                } ?: it.value
+                }
+                if (localEmoji != null) {
+                    localEmoji
+                } else {
+                    val location = revoltEmojiRepository.downloadEmoji(capture)
+                    "![$it](file://$location)"
+                }
             }
             message.systemEventMessage?.let {
                 it.message =
