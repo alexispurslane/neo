@@ -327,7 +327,7 @@ fun ChannelRow(
                     color = textColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    fontSize = 18.sp
+                    fontSize = 19.sp
                 )
             }
     }

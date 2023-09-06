@@ -95,7 +95,7 @@ private val DarkColorScheme = darkColorScheme(
     primary = EngineeringOrange,
     secondary = Color(0xFF0EB3B3),
     surface = Color(0xFF0f0f0f),
-    secondaryContainer = Color(0xFF0f0f0f),
+    secondaryContainer = Color(0xFF0e0e0e),
     onSecondaryContainer = Color.LightGray,
 
     background = Color(0xFF000000),

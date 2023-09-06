@@ -38,7 +38,7 @@ val Typography = Typography(
     ),
     titleMedium = defaultTypography.titleMedium.copy(
         fontFamily = AppFont.Metropolis,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
     ),
 
     // Main body font
