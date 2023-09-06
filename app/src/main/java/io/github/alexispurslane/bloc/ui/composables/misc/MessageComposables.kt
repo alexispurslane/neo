@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
@@ -56,7 +58,9 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
@@ -77,6 +81,7 @@ import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
 import io.github.alexispurslane.bloc.data.network.models.RevoltServerMember
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
 import io.github.alexispurslane.bloc.data.network.models.Role
+import io.github.alexispurslane.bloc.ui.theme.AppFont
 import io.github.alexispurslane.bloc.viewmodels.ServerChannelUiState
 import io.github.alexispurslane.bloc.viewmodels.ServerChannelViewModel
 import kotlinx.coroutines.launch
@@ -186,11 +191,9 @@ fun MessagesView(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    "New messages available",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 12.sp
-                )
+                ProvideTextStyle(value = MaterialTheme.typography.labelMedium) {
+                    Text("New messages available")
+                }
             }
         }
     }
@@ -208,14 +211,14 @@ fun BeginningMessage(
         contentAlignment = Alignment.BottomStart
     ) {
         Column {
-            Text(
-                "#${channelInfo.name}",
-                fontWeight = FontWeight.Black,
-                fontSize = 40.sp,
-            )
+            ProvideTextStyle(value = MaterialTheme.typography.displayMedium) {
+                Text("#${channelInfo.name}")
+            }
+
             Text(
                 "This is the beginning of your legendary conversation!",
                 fontWeight = FontWeight.Black,
+                fontFamily = AppFont.Metropolis,
                 fontSize = 15.sp,
             )
         }
@@ -263,27 +266,30 @@ fun Message(
                 }
             ) {
                 if (prevMessage == null || prevMessage.authorId != message.authorId) {
-                    Text(
-                        message.masquerade?.name ?: member.nickname
-                        ?: user.displayName ?: user.userName,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Black,
-                        textAlign = TextAlign.Start,
-                        color = if (role != null) {
-                            try {
-                                Color(
-                                    android.graphics.Color.parseColor(
-                                        message.masquerade?.color ?: role.color
+                    ProvideTextStyle(value = MaterialTheme.typography.titleMedium) {
+                        Text(
+                            message.masquerade?.name ?: member.nickname
+                            ?: user.displayName ?: user.userName,
+                            textAlign = TextAlign.Start,
+                            color = if (role != null) {
+                                try {
+                                    Color(
+                                        android.graphics.Color.parseColor(
+                                            message.masquerade?.color
+                                                ?: role.color
+                                        )
                                     )
-                                )
-                            } catch (e: Exception) {
-                                Color.White
-                            }
-                        } else MaterialTheme.colorScheme.onBackground
-                    )
+                                } catch (e: Exception) {
+                                    Color.White
+                                }
+                            } else MaterialTheme.colorScheme.onBackground
+                        )
+                    }
                 }
                 if (message.content!!.isNotBlank()) {
-                    CustomizableMarkdownText(message.content)
+                    CustomizableMarkdownText(
+                        message.content,
+                    )
                 }
                 if (message.attachments?.isNotEmpty() == true) {
                     var collapseState by remember { mutableStateOf(message.attachments.size > 2) }
@@ -326,14 +332,16 @@ fun Message(
                             }
                         }
                     }
-                    TextButton(
-                        onClick = { collapseState = !collapseState }
-                    ) {
-                        Text(
-                            "${if (collapseState) "Expand" else "Collapse"} attachments",
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                    ProvideTextStyle(value = MaterialTheme.typography.labelLarge) {
+                        TextButton(
+                            onClick = { collapseState = !collapseState }
+                        ) {
+                            Text(
+                                "${if (collapseState) "Expand" else "Collapse"} attachments",
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             }
@@ -367,7 +375,7 @@ fun CustomizableMarkdownText(
     shadow: Shadow? = null,
     textAlign: TextAlign? = null,
     textDirection: TextDirection? = null,
-    lineHeight: TextUnit = fontSize,
+    lineHeight: TextUnit = TextUnit.Unspecified,
     textIndent: TextIndent? = null,
     platformStyle: PlatformTextStyle? = null,
     lineHeightStyle: LineHeightStyle? = null,
@@ -383,50 +391,54 @@ fun CustomizableMarkdownText(
     stringStyle: RichTextStringStyle? = RichTextStringStyle(
         linkStyle = SpanStyle(
             color = MaterialTheme.colorScheme.secondary,
-            fontWeight = FontWeight.Black,
+            fontWeight = FontWeight.ExtraBold,
             textDecoration = TextDecoration.None,
         )
     )
 ) {
-    ProvideTextStyle(
-        TextStyle(
-            color,
-            fontSize,
-            fontWeight,
-            fontStyle,
-            fontSynthesis,
-            fontFamily,
-            fontFeatureSettings,
-            letterSpacing,
-            baselineShift,
-            textGeometricTransform,
-            localeList,
-            background,
-            textDecoration,
-            shadow,
-            textAlign,
-            textDirection,
-            lineHeight,
-            textIndent,
-            platformStyle,
-            lineHeightStyle,
-            lineBreak,
-            hyphens
-        )
-    ) {
-        Material3RichText(
-            style = RichTextStyle(
-                paragraphSpacing,
-                headingStyle,
-                listStyle,
-                blockQuoteGutter,
-                codeBlockStyle,
-                tableStyle,
-                infoPanelStyle,
-                stringStyle,
+    SelectionContainer {
+        ProvideTextStyle(
+            MaterialTheme.typography.bodyLarge.merge(
+                TextStyle(
+                    color,
+                    fontSize,
+                    fontWeight,
+                    fontStyle,
+                    fontSynthesis,
+                    fontFamily,
+                    fontFeatureSettings,
+                    letterSpacing,
+                    baselineShift,
+                    textGeometricTransform,
+                    localeList,
+                    background,
+                    textDecoration,
+                    shadow,
+                    textAlign,
+                    textDirection,
+                    lineHeight,
+                    textIndent,
+                    platformStyle,
+                    lineHeightStyle,
+                    lineBreak,
+                    hyphens
+                )
             )
         ) {
-            Markdown(content = content)
+            Material3RichText(
+                style = RichTextStyle(
+                    paragraphSpacing,
+                    headingStyle,
+                    listStyle,
+                    blockQuoteGutter,
+                    codeBlockStyle,
+                    tableStyle,
+                    infoPanelStyle,
+                    stringStyle,
+                )
+            ) {
+                Markdown(content = content)
+            }
         }
     }
 }

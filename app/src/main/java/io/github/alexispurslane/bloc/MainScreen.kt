@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -60,18 +61,19 @@ fun LoadingScreen() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(
-                "Loading...",
-                fontWeight = FontWeight.Black,
-                fontSize = 30.sp,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                Constants.LOADING_SCREEN_REMARKS.random(),
-                fontWeight = FontWeight.Black,
-                fontSize = 10.sp,
-                textAlign = TextAlign.Center
-            )
+            ProvideTextStyle(value = MaterialTheme.typography.displayMedium) {
+                Text(
+                    "Loading...",
+                    textAlign = TextAlign.Center
+                )
+            }
+            ProvideTextStyle(value = MaterialTheme.typography.labelMedium) {
+                Text(
+                    Constants.LOADING_SCREEN_REMARKS.random(),
+                    textAlign = TextAlign.Center,
+                )
+            }
+
             CircularProgressIndicator(
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = Color.LightGray,
@@ -93,7 +95,7 @@ data class MainUiState(
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val revoltAccountsRepository: RevoltAccountsRepository,
-): ViewModel() {
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()

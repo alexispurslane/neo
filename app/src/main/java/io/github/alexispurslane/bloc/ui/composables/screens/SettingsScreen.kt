@@ -3,6 +3,7 @@ package io.github.alexispurslane.bloc.ui.composables.screens
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.provider.Settings
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,8 +16,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarColors
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,106 +40,106 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.alexispurslane.bloc.viewmodels.SettingsViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("BatteryLife")
 @Composable
 fun SettingsScreen(
     settingsViewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by settingsViewModel.uiState.collectAsState()
-    Column(
-        modifier = Modifier
-            .padding(horizontal = 15.dp)
-            .verticalScroll(
-                rememberScrollState()
-            ),
-        verticalArrangement = Arrangement.spacedBy(
-            10.dp,
-            Alignment.CenterVertically
-        ),
-        horizontalAlignment = Alignment.Start
-    ) {
-        Box(
-            modifier = Modifier
-                .height(100.dp)
-                .padding(bottom = 30.dp),
-            contentAlignment = Alignment.BottomStart
-        ) {
-            Text(
-                "Settings",
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Start,
+    Scaffold(
+        topBar = {
+            LargeTopAppBar(
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                ),
+                title = {
+                    ProvideTextStyle(value = MaterialTheme.typography.headlineLarge) {
+                        Text("Settings")
+                    }
+                }
             )
-        }
-        Text(
-            "appearance",
-            fontSize = 18.sp,
-            textAlign = TextAlign.Start,
-            fontWeight = FontWeight.Black,
-            color = Color.DarkGray,
-            style = TextStyle(
-                fontFeatureSettings = "smcp"
-            )
-        )
-        SettingsRow(
-            title = "Dark mode",
-            comment = "Use the dark theme for this app"
-        ) {
-            Switch(checked = uiState.darkTheme, onCheckedChange = {
-                settingsViewModel.toggleDarkTheme(it)
-            })
-        }
+        },
+        content = {
+            Column(
+                modifier = Modifier
+                    .padding(it)
+                    .padding(horizontal = 15.dp)
+                    .verticalScroll(
+                        rememberScrollState()
+                    ),
+                verticalArrangement = Arrangement.spacedBy(
+                    10.dp,
+                    Alignment.CenterVertically
+                ),
+                horizontalAlignment = Alignment.Start
+            ) {
+                ProvideTextStyle(value = MaterialTheme.typography.headlineSmall) {
+                    Text(
+                        "APPEARANCE"
+                    )
+                }
+                SettingsRow(
+                    title = "Dark mode",
+                    comment = "Use the dark theme for this app"
+                ) {
+                    Switch(checked = uiState.darkTheme, onCheckedChange = {
+                        settingsViewModel.toggleDarkTheme(it)
+                    })
+                }
 
-        Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-        Text(
-            "notifications",
-            fontSize = 18.sp,
-            textAlign = TextAlign.Start,
-            fontWeight = FontWeight.Black,
-            color = Color.DarkGray,
-            style = TextStyle(
-                fontFeatureSettings = "smcp"
-            )
-        )
-        val context = LocalContext.current
-        val packageName = context.packageName
-        val launchNotificationSettingsIntent =
-            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                ProvideTextStyle(value = MaterialTheme.typography.headlineSmall) {
+                    Text(
+                        "NOTIFICATIONS"
+                    )
+                }
+                val context = LocalContext.current
+                val packageName = context.packageName
+                val launchNotificationSettingsIntent =
+                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
 
-        SettingsRow(
-            modifier = Modifier
-                .clickable {
-                    context.startActivity(launchNotificationSettingsIntent)
-                },
-            title = "Notification settings",
-            comment = "Tap to customize how messages are presented"
-        )
-        SettingsRow(
-            title = "Notification service",
-            comment = "In order to receive notifications without using Google's servers, this service listens for new notifications over WebSockets. This is necessary to receive any notifications. It may use more battery."
-        ) {
-            Switch(checked = uiState.serviceOn, onCheckedChange = {
-                settingsViewModel.toggleNotificationsService(it)
-            })
-        }
+                SettingsRow(
+                    modifier = Modifier
+                        .clickable {
+                            context.startActivity(
+                                launchNotificationSettingsIntent
+                            )
+                        },
+                    title = "Notification settings",
+                    comment = "Tap to customize how messages are presented"
+                )
+                SettingsRow(
+                    title = "Notification service",
+                    comment = "In order to receive notifications without using Google's servers, this service listens for new notifications over WebSockets. This is necessary to receive any notifications. It may use more battery."
+                ) {
+                    Switch(checked = uiState.serviceOn, onCheckedChange = {
+                        settingsViewModel.toggleNotificationsService(it)
+                    })
+                }
 
-        val launchPowerManagementSettingsIntent =
-            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                val launchPowerManagementSettingsIntent =
+                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
 
-        SettingsRow(
-            modifier = Modifier
-                .clickable {
-                    context.startActivity(launchPowerManagementSettingsIntent)
-                },
-            title = "Protect from doze",
-            comment = "In order to reliably deliver notifications, this app must be protected from power optimizations. Tap to go to those settings."
-        )
-    }
+                SettingsRow(
+                    modifier = Modifier
+                        .clickable {
+                            context.startActivity(
+                                launchPowerManagementSettingsIntent
+                            )
+                        },
+                    title = "Protect from doze",
+                    comment = "In order to reliably deliver notifications, this app must be protected from power optimizations. Tap to go to those settings."
+                )
+            }
+        },
+        bottomBar = {}
+    )
 }
 
 @Composable
@@ -155,9 +163,14 @@ fun SettingsRow(
                 Alignment.CenterVertically
             )
         ) {
-            Text(title, fontWeight = FontWeight.Black, fontSize = 18.sp)
-            if (comment != null)
-                Text(comment, color = Color.Gray, fontSize = 15.sp)
+            ProvideTextStyle(value = MaterialTheme.typography.titleMedium) {
+                Text(title)
+            }
+            if (comment != null) {
+                ProvideTextStyle(value = MaterialTheme.typography.labelMedium) {
+                    Text(comment)
+                }
+            }
         }
         content()
     }

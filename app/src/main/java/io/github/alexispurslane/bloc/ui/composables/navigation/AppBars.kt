@@ -1,16 +1,24 @@
 package io.github.alexispurslane.bloc.ui.composables.navigation
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
@@ -25,22 +33,34 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults.topAppBarColors
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -50,10 +70,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import io.github.alexispurslane.bloc.R
+import io.github.alexispurslane.bloc.data.local.RevoltAutumnModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
+import io.github.alexispurslane.bloc.ui.theme.AppFont
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
 fun MessageBar(
@@ -62,8 +88,8 @@ fun MessageBar(
     onValueChange: (String) -> Unit = {},
     onSubmit: () -> Unit = {}
 ) {
-    BottomAppBar(
-        containerColor = MaterialTheme.colorScheme.background,
+    Box(
+        modifier = Modifier.background(MaterialTheme.colorScheme.background),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically
@@ -79,24 +105,35 @@ fun MessageBar(
                 modifier = Modifier
                     .weight(1f)
                     .padding(5.dp)
-                    .height(50.dp),
+                    .heightIn(50.dp, 200.dp),
                 placeholder = {
                     Text("Message $channelName...")
                 },
                 value = value,
                 onValueChange = onValueChange,
                 keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
+                    capitalization = KeyboardCapitalization.None,
                     autoCorrect = true,
                     keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Send
+                    imeAction = ImeAction.Default
                 ),
-                keyboardActions = KeyboardActions(
-                    onSend = {
-                        onSubmit()
-                    }
-                )
+                textStyle = TextStyle(fontSize = 15.sp)
             )
+
+            var modalEditDialogue by rememberSaveable { mutableStateOf(false) }
+            LaunchedEffect(value.length) {
+                modalEditDialogue = value.length > 500
+            }
+
+            if (modalEditDialogue) {
+                LongFormEditor(
+                    value = value,
+                    onValueChange = onValueChange,
+                    onDismissRequest = { modalEditDialogue = false },
+                    channelName = channelName
+                )
+            }
+
             IconButton(
                 onClick = { /*TODO*/ }) {
                 Icon(
@@ -119,6 +156,56 @@ fun MessageBar(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun LongFormEditor(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onDismissRequest: () -> Unit,
+    channelName: String = ""
+) {
+    val bottomSheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
+    ModalBottomSheet(
+        sheetState = bottomSheetState,
+        onDismissRequest = { onDismissRequest() }
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            ProvideTextStyle(value = MaterialTheme.typography.headlineLarge) {
+                Text(
+                    "Long-form text input",
+                    modifier = Modifier.padding(bottom = 5.dp),
+                    textAlign = TextAlign.Start
+                )
+            }
+            MessageBoxTextField(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(5.dp),
+                placeholder = {
+                    Text("Message $channelName...")
+                },
+                value = value,
+                onValueChange = onValueChange,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
+                    autoCorrect = true,
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Default
+                ),
+                textStyle = TextStyle(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Light,
+                    fontFamily = FontFamily.Serif
+                )
+            )
+        }
+    }
+
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun ChannelTopBar(channelInfo: RevoltChannel.TextChannel) {
     TopAppBar(
         colors = topAppBarColors(
@@ -137,22 +224,33 @@ fun ChannelTopBar(channelInfo: RevoltChannel.TextChannel) {
                     modifier = Modifier
                         .size(24.dp)
                 ) {
-                    Icon(
-                        imageVector = ImageVector.vectorResource(
-                            R.drawable.channel_hashtag
-                        ),
-                        contentDescription = "channel hashtag icon"
+                    if (channelInfo.icon != null) {
+                        AsyncImage(
+                            model = RevoltAutumnModule.getResourceUrl(
+                                LocalContext.current, channelInfo.icon
+                            ),
+                            contentDescription = "Channel Icon",
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        Icon(
+                            imageVector = ImageVector.vectorResource(
+                                R.drawable.channel_hashtag
+                            ),
+                            contentDescription = "channel hashtag icon"
+                        )
+                    }
+                }
+
+                ProvideTextStyle(value = MaterialTheme.typography.titleLarge) {
+                    Text(
+                        channelInfo.name,
+                        modifier = Modifier.padding(top = 3.dp),
+                        textAlign = TextAlign.Start,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Text(
-                    channelInfo.name ?: "",
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Start,
-                    fontSize = 20.sp,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
         }
     )
@@ -175,11 +273,15 @@ fun MessageBoxTextField(
     minLines: Int = 1,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     shape: Shape = MaterialTheme.shapes.small,
-    colors: TextFieldColors = TextFieldDefaults.outlinedTextFieldColors()
+    colors: TextFieldColors = OutlinedTextFieldDefaults.colors(),
+    textStyle: TextStyle? = null
 ) {
     // If color is not provided via the text style, use content color as a default
     val textColor = MaterialTheme.colorScheme.onBackground
-    val mergedTextStyle = TextStyle(color = textColor)
+    val mergedTextStyle =
+        TextStyle(color = textColor, fontFamily = AppFont.Rubik).merge(
+            textStyle
+        )
     val focused by interactionSource.collectIsFocusedAsState()
 
     BasicTextField(

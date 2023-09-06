@@ -20,6 +20,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.net.URL
 import javax.inject.Inject
@@ -132,7 +133,7 @@ class RevoltEmojiRepository @Inject constructor(
         }
     }
 
-    fun getEmoji(
+    suspend fun getEmoji(
         emojiIdOrName: String
     ): String? {
         val location =
@@ -142,6 +143,8 @@ class RevoltEmojiRepository @Inject constructor(
                 ?: emojiLocations[emoji[emojiIdOrName]?.name]
                 // Well, it's not on this server, or else we'd have it in our database, so it must be referred to by ID and from some other server, so go download it, or just return its location if already downloaded
                 ?: downloadCustomEmoji(emojiIdOrName)
+                // Well, then, its one of Revolt's built in, but static, emoji!
+                ?: EmojiMap.REVOLT_CUSTOM_BUILTIN_EMOJI[emojiIdOrName]?.let { "https://dl.insrt.uk/projects/revolt/emotes/$it" }
         Log.d(
             "EMOJI REPO",
             "Got emoji $emojiIdOrName, location: $location"
@@ -149,41 +152,45 @@ class RevoltEmojiRepository @Inject constructor(
         return location
     }
 
-    private fun downloadCustomEmoji(
+    private suspend fun downloadCustomEmoji(
         emojiId: String,
         urlBase: String = "${RevoltAutumnModule.autumnUrl}/emojis"
     ): String? {
-        return try {
-            val cacheDir = application.cacheDir.absolutePath
-            with(File(cacheDir, "emoji-$emojiId")) {
-                if (!exists()) {
-                    val url =
-                        URL("$urlBase/$emojiId")
-                    val bitmap =
-                        with(url.openConnection() as HttpsURLConnection) {
-                            requestMethod = "GET"
-                            doInput = true
+        return withContext(Dispatchers.IO) {
+            return@withContext try {
+                val cacheDir = application.cacheDir.absolutePath
+                with(File(cacheDir, "emoji-$emojiId")) {
+                    if (!exists()) {
+                        val url =
+                            URL("$urlBase/$emojiId")
+                        val bitmap =
+                            with(url.openConnection() as HttpsURLConnection) {
+                                requestMethod = "GET"
+                                doInput = true
 
-                            Bitmap.createScaledBitmap(
-                                BitmapFactory.decodeStream(inputStream),
-                                64,
-                                64,
-                                false
-                            )
-                        }
-                    val out = FileOutputStream(this)
-                    bitmap.compress(
-                        Bitmap.CompressFormat.PNG,
-                        50,
-                        out
-                    )
-                    out.flush()
+                                Bitmap.createScaledBitmap(
+                                    BitmapFactory.decodeStream(inputStream),
+                                    64,
+                                    64,
+                                    false
+                                )
+                            }
+                        val out = FileOutputStream(this)
+                        bitmap.compress(
+                            Bitmap.CompressFormat.PNG,
+                            50,
+                            out
+                        )
+                        out.flush()
+                    }
                 }
+                "$cacheDir/emoji-$emojiId"
+            } catch (e: Exception) {
+                if (e !is FileNotFoundException) {
+                    Log.e("EMOJI REPO", "Cannot download emoji $emojiId: $e")
+                }
+                null
             }
-            "$cacheDir/emoji-$emojiId"
-        } catch (e: Exception) {
-            Log.e("EMOJI REPO", "Cannot download emoji $emojiId: $e")
-            null
         }
     }
 }

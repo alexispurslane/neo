@@ -49,6 +49,7 @@ class RevoltMessagesRepository @Inject constructor(
             // should already exist for those messages, so we need to force messages
             // to be processed *after* the emoji are loaded)
             revoltEmojiRepository.deferredUntilEmojiLoaded.await()
+
             val userInformation = (message.mentionedIds.orEmpty().plus(
                 message.systemEventMessage?.let { USER_MENTION_REGEX.findAll(it.message) }
                     ?.map { it.groupValues[1] }.orEmpty()
@@ -96,7 +97,7 @@ class RevoltMessagesRepository @Inject constructor(
                             matchResult.value
                     )
                 }
-            }
+            }?.replace("\n", "\n\n")
             message.systemEventMessage?.let {
                 it.message =
                     it.message.replace(USER_MENTION_REGEX) {

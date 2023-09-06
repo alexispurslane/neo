@@ -89,7 +89,7 @@ class ServerChannelViewModel @Inject constructor(
                 when (event) {
                     is RevoltWebSocketResponse.Message -> {
                         if (event.message.channelId == uiState.value.channelId) {
-                            if (messageListState.firstVisibleItemIndex < 5) {
+                            if (messageListState.firstVisibleItemIndex < 20) {
                                 messageListState.scrollToItem(0)
                                 _uiState.update {
                                     it.copy(newMessages = false)

@@ -128,7 +128,7 @@ fun HomeScreen(
                         uriPattern = "bloc://profile/{userId}"
                     })
                 ) {
-                    UserProfileScreen(navController)
+                    UserProfileScreen()
                 }
                 composable(
                     "channel/{channelId}",

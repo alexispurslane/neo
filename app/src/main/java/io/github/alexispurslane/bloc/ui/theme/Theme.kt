@@ -13,9 +13,83 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.github.alexispurslane.bloc.R
 import io.github.alexispurslane.bloc.viewmodels.SettingsViewModel
+
+object AppFont {
+    val Rubik = FontFamily(
+        Font(R.font.rubik_black, FontWeight.Black),
+        Font(R.font.rubik_blackitalic, FontWeight.Black, FontStyle.Italic),
+        Font(R.font.rubik_extrabold, FontWeight.ExtraBold),
+        Font(R.font.rubik_extrabold, FontWeight.ExtraBold),
+        Font(R.font.rubik_bold, FontWeight.Bold),
+        Font(R.font.rubik_bolditalic, FontWeight.Bold, FontStyle.Italic),
+        Font(R.font.rubik_semibold, FontWeight.SemiBold),
+        Font(
+            R.font.rubik_semibolditalic,
+            FontWeight.SemiBold,
+            FontStyle.Italic
+        ),
+        Font(R.font.rubik_medium, FontWeight.Medium),
+        Font(R.font.rubik_mediumitalic, FontWeight.Medium, FontStyle.Italic),
+        Font(R.font.rubik_regular, FontWeight.Normal),
+        Font(R.font.rubik_italic, FontWeight.Normal, FontStyle.Italic),
+        Font(R.font.rubik_light, FontWeight.Light),
+        Font(R.font.rubik_lightitalic, FontWeight.Light, FontStyle.Italic),
+    )
+    val Metropolis = FontFamily(
+        Font(R.font.metropolis_black, FontWeight.Black),
+        Font(
+            R.font.metropolis_blackitalic,
+            FontWeight.Black,
+            FontStyle.Italic
+        ),
+        Font(R.font.metropolis_extrabold, FontWeight.ExtraBold),
+        Font(
+            R.font.metropolis_extrabold,
+            FontWeight.ExtraBold,
+            FontStyle.Italic
+        ),
+        Font(R.font.metropolis_semibold, FontWeight.SemiBold),
+        Font(
+            R.font.metropolis_semibolditalic,
+            FontWeight.SemiBold,
+            FontStyle.Italic
+        ),
+        Font(R.font.metropolis_medium, FontWeight.Medium),
+        Font(
+            R.font.metropolis_mediumitalic,
+            FontWeight.Medium,
+            FontStyle.Italic
+        ),
+        Font(R.font.metropolis_regular, FontWeight.Normal),
+        Font(
+            R.font.metropolis_regularitalic,
+            FontWeight.Normal,
+            FontStyle.Italic
+        ),
+        Font(R.font.metropolis_light, FontWeight.Light),
+        Font(
+            R.font.metropolis_lightitalic,
+            FontWeight.Light,
+            FontStyle.Italic
+        ),
+        Font(R.font.metropolis_thin, FontWeight.Thin),
+        Font(R.font.metropolis_thinitalic, FontWeight.Thin, FontStyle.Italic),
+        Font(R.font.metropolis_extralight, FontWeight.ExtraLight),
+        Font(
+            R.font.metropolis_extralightitalic,
+            FontWeight.ExtraLight,
+            FontStyle.Italic
+        ),
+    )
+}
 
 private val DarkColorScheme = darkColorScheme(
     primary = EngineeringOrange,

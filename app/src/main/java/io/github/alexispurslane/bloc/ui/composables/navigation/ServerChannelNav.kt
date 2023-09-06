@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -208,14 +209,14 @@ fun ServerChannelNav(
                         contentDescription = "Server Banner",
                         contentScale = ContentScale.FillHeight
                     )
-                Text(
-                    servers[currentServerId]?.name ?: "Direct Messages",
-                    modifier = Modifier.padding(start = 10.dp),
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Start,
-                    color = Color.White
-                )
+                ProvideTextStyle(value = MaterialTheme.typography.headlineLarge) {
+                    Text(
+                        servers[currentServerId]?.name ?: "Direct Messages",
+                        modifier = Modifier.padding(start = 10.dp),
+                        textAlign = TextAlign.Start,
+                        color = Color.White
+                    )
+                }
             }
             Column(
                 modifier = Modifier
@@ -244,14 +245,12 @@ fun ServerChannelNav(
                     }
                 }
                 servers[currentServerId]?.categories?.forEach { category ->
-                    Text(
-                        category.title.lowercase(Locale.getDefault()),
-                        fontSize = 15.sp,
-                        textAlign = TextAlign.Start,
-                        fontWeight = FontWeight.Black,
-                        color = Color.DarkGray,
-                        style = TextStyle(fontFeatureSettings = "smcp")
-                    )
+                    ProvideTextStyle(value = MaterialTheme.typography.headlineSmall) {
+                        Text(
+                            category.title.uppercase(Locale.getDefault()),
+                            textAlign = TextAlign.Start,
+                        )
+                    }
                     category.channelIds.forEachIndexed { _, channelId ->
                         val channel = channels[channelId]
                         if (channel != null)
@@ -321,14 +320,15 @@ fun ChannelRow(
         val textColor =
             if (selected) MaterialTheme.colorScheme.onSecondaryContainer else Color.Gray
         if (channel is RevoltChannel.TextChannel)
-            Text(
-                channel.name,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Start,
-                fontSize = 20.sp,
-                color = textColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            ProvideTextStyle(value = MaterialTheme.typography.titleMedium) {
+                Text(
+                    channel.name,
+                    textAlign = TextAlign.Start,
+                    color = textColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 18.sp
+                )
+            }
     }
 }

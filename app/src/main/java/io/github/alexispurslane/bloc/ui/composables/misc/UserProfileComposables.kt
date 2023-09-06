@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -42,6 +43,7 @@ import io.github.alexispurslane.bloc.data.network.models.Presence
 import io.github.alexispurslane.bloc.data.network.models.RelationshipStatus
 import io.github.alexispurslane.bloc.data.network.models.RevoltServerMember
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
+import io.github.alexispurslane.bloc.ui.theme.AppFont
 
 
 @Composable
@@ -87,22 +89,17 @@ fun UserCard(
                     .padding(bottom = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    "information",
-                    fontSize = 18.sp,
-                    textAlign = TextAlign.Start,
-                    fontWeight = FontWeight.Black,
-                    color = Color.DarkGray,
-                    style = TextStyle(
-                        fontFeatureSettings = "smcp"
+                ProvideTextStyle(value = MaterialTheme.typography.headlineSmall) {
+                    Text(
+                        "INFORMATION",
                     )
-                )
+                }
 
-                CustomizableMarkdownText(
-                    content = userProfile.value.profile?.content ?: "",
-                    fontSize = 18.sp,
-                    textAlign = TextAlign.Start
-                )
+                ProvideTextStyle(value = MaterialTheme.typography.bodyLarge) {
+                    Text(
+                        userProfile.value.profile?.content ?: ""
+                    )
+                }
             }
         }
     }
@@ -132,21 +129,24 @@ fun UserRow(
                     "${userProfile.displayName}",
                     fontSize = (iconSize.value / 2 - 4).sp,
                     fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Start
+                    textAlign = TextAlign.Start,
+                    fontFamily = AppFont.Metropolis
                 )
                 Text(
                     "@${userProfile.userName}#${userProfile.discriminator}",
                     fontSize = (iconSize.value / 4 - 4).sp,
                     fontWeight = FontWeight.Black,
                     textAlign = TextAlign.Start,
-                    color = Color.LightGray
+                    color = Color.LightGray,
+                    fontFamily = AppFont.Metropolis
                 )
             } else {
                 Text(
                     "@${userProfile.userName}#${userProfile.discriminator}",
                     fontSize = (iconSize.value / 2 - 4).sp,
                     fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Start
+                    textAlign = TextAlign.Start,
+                    fontFamily = AppFont.Metropolis
                 )
             }
             if (relationship != null) {
@@ -179,18 +179,21 @@ fun UserRow(
                         Color.LightGray
                     }
                 }
-                Text(
-                    relationship.status,
-                    fontSize = 12.sp,
-                    color = color
-                )
+                ProvideTextStyle(value = MaterialTheme.typography.labelMedium) {
+                    Text(
+                        relationship.status,
+                        fontSize = 12.sp,
+                        color = color
+                    )
+                }
             }
             Text(
                 userProfile.status?.customStatus ?: "",
                 fontSize = (iconSize.value / 4 - 4).sp,
                 style = TextStyle(lineHeight = 15.sp),
                 textAlign = TextAlign.Start,
-                color = Color.LightGray
+                color = Color.LightGray,
+                fontFamily = AppFont.Rubik
             )
         }
     }
