@@ -38,80 +38,6 @@ class RevoltMessagesRepository @Inject constructor(
 
     private val USER_MENTION_REGEX by lazy { Regex("<@([a-zA-Z0-9]+)>") }
     private val EMOJI_REGEX by lazy { Regex(":([a-zA-Z0-9_]+):") }
-    private suspend fun treatMessage(message: RevoltMessage): RevoltMessage =
-        coroutineScope {
-            // Doing this makes no sense till all the initial emoji are loaded
-            // (we don't have to wait the infinite time that it would take for
-            // all emoji that could be added later to be added, because messages
-            // will only be expected to render those emoji after they're added,
-            // whereas here we're trying to synchronize around a race condition
-            // between initial message processing and loading all the emojis that
-            // should already exist for those messages, so we need to force messages
-            // to be processed *after* the emoji are loaded)
-            revoltEmojiRepository.deferredUntilEmojiLoaded.await()
-
-            val userInformation = (message.mentionedIds.orEmpty().plus(
-                message.systemEventMessage?.let { USER_MENTION_REGEX.findAll(it.message) }
-                    ?.map { it.groupValues[1] }.orEmpty()
-            )).map { userId: String ->
-                async {
-                    when (val u =
-                        revoltAccountsRepository.fetchUserInformation(userId)) {
-                        is Either.Success -> {
-                            val user = u.value
-                            user.value.userId to user.value
-                        }
-
-                        is Either.Error -> {
-                            null
-                        }
-                    }
-                }
-            }.awaitAll().filterNotNull().toMap()
-            val newContent = message.content?.replace(USER_MENTION_REGEX) {
-                val user = userInformation[it.groupValues[1]]
-                "[@${user?.userName ?: it.value}](bloc://profile/${user?.userId})"
-            }?.let { withMentions ->
-                val emojiMatches = EMOJI_REGEX.findAll(withMentions)
-                val emojis = emojiMatches.map {
-                    async {
-                        val location =
-                            revoltEmojiRepository.getEmoji(it.groupValues[1])
-                        if (location != null) {
-                            it.groupValues[1] to location
-                        } else {
-                            null
-                        }
-                    }
-                }.toList().awaitAll().filterNotNull().toMap()
-                emojiMatches.fold(withMentions) { acc, matchResult ->
-                    val name = matchResult.groupValues[1]
-                    val location = emojis[name]
-                    acc.replaceRange(
-                        matchResult.range,
-                        if (location != null)
-                            "![${matchResult.value}](${location})"
-                        else if (EmojiMap.EMOJI_DICTIONARY[name] != null)
-                            EmojiMap.EMOJI_DICTIONARY[name]!!
-                        else
-                            matchResult.value
-                    )
-                }
-            }?.replace("\n", "\n\n")
-            message.systemEventMessage?.let {
-                it.message =
-                    it.message.replace(USER_MENTION_REGEX) {
-                        val user = userInformation[it.groupValues[1]]
-                        val id =
-                            if (user != null) "@${user.userName}" else it.value
-                        "[${id}](bloc://profile/${it.groupValues[1]})"
-                    }
-            }
-            message.copy(
-                content = newContent,
-                systemEventMessage = message.systemEventMessage
-            )
-        }
 
     init {
         GlobalScope.launch(Dispatchers.Default) {
@@ -127,13 +53,15 @@ class RevoltMessagesRepository @Inject constructor(
                                 "MESSAGE REPO",
                                 "Message not already received, adding it"
                             )
+                            val len =
+                                channelMessages[event.message.channelId]?.size
+                                    ?: 0
                             channelMessages[event.message.channelId]?.apply {
                                 add(0, treatMessage(event.message))
                             }
                             existingMessageIds.set(
                                 event.message.messageId,
-                                (channelMessages[event.message.channelId]?.size
-                                    ?: 0) + 1
+                                len + 1
                             )
                         }
                     }
@@ -141,7 +69,7 @@ class RevoltMessagesRepository @Inject constructor(
                     is RevoltWebSocketResponse.MessageDelete -> {
                         existingMessageIds[event.messageId]?.let { reverseIndex ->
                             channelMessages[event.channelId]?.let { channel ->
-                                val index = channel.size - (reverseIndex - 1)
+                                val index = channel.size - reverseIndex
                                 channel.apply {
                                     removeAt(index)
                                 }
@@ -152,7 +80,7 @@ class RevoltMessagesRepository @Inject constructor(
                     is RevoltWebSocketResponse.MessageUpdate -> {
                         existingMessageIds[event.messageId]?.let { reverseIndex ->
                             channelMessages[event.channelId]?.let { channel ->
-                                val index = channel.size - (reverseIndex - 1)
+                                val index = channel.size - reverseIndex
                                 channel.apply {
                                     val old = get(index)
                                     set(
@@ -276,6 +204,7 @@ class RevoltMessagesRepository @Inject constructor(
                     val errorBody =
                         (res.errorBody() ?: res.errorBody())?.string()
                     if (res.isSuccessful) {
+                        val len = channelMessages[channelId]?.size ?: 0
                         if (channelMessages.containsKey(channelId)) {
                             if (nearby == null && includeUsers == null && sort != "Relevance" && body.isNotEmpty()) {
                                 channelMessages[channelId]!!.apply {
@@ -295,16 +224,12 @@ class RevoltMessagesRepository @Inject constructor(
                                 addAll(body)
                             }
                         }
-                        val len = channelMessages[channelId]?.size ?: 0
                         existingMessageIds.putAll(
                             body.mapIndexed { i, m -> m.messageId to (body.size - i + len) }
                         )
-                        Log.d(
-                            "MESSAGE REPO",
-                            "Bulk message fetch, adding ids: ${
-                                body.map { it.messageId }.toList()
-                            }"
-                        )
+                        Log.d("MESSAGE REPO", "Bulk message fetch")
+                        Log.d("MESSAGE REPO", "previous channel len: $len")
+                        Log.d("MESSAGE REPO", "adding ${body.size} messages")
                         Either.Success(channelMessages[channelId]!!)
                     } else if (errorBody != null) {
                         val jsonObject = JSONObject(errorBody.trim())
@@ -364,4 +289,85 @@ class RevoltMessagesRepository @Inject constructor(
         }
     }
 
+    /*
+     * ABANDON ALL HOPE YE WHO ENTER HERE
+     *
+     * REGEX SETS YOU FREE
+     *
+     * WELCOME TO THE TREATMENT PLANT
+     */
+    private suspend fun treatMessage(message: RevoltMessage): RevoltMessage =
+        coroutineScope {
+            // Doing this makes no sense till all the initial emoji are loaded
+            // (we don't have to wait the infinite time that it would take for
+            // all emoji that could be added later to be added, because messages
+            // will only be expected to render those emoji after they're added,
+            // whereas here we're trying to synchronize around a race condition
+            // between initial message processing and loading all the emojis that
+            // should already exist for those messages, so we need to force messages
+            // to be processed *after* the emoji are loaded)
+            revoltEmojiRepository.deferredUntilEmojiLoaded.await()
+
+            val userInformation = (message.mentionedIds.orEmpty().plus(
+                message.systemEventMessage?.let { USER_MENTION_REGEX.findAll(it.message) }
+                    ?.map { it.groupValues[1] }.orEmpty()
+            )).map { userId: String ->
+                async {
+                    when (val u =
+                        revoltAccountsRepository.fetchUserInformation(userId)) {
+                        is Either.Success -> {
+                            val user = u.value
+                            user.value.userId to user.value
+                        }
+
+                        is Either.Error -> {
+                            null
+                        }
+                    }
+                }
+            }.awaitAll().filterNotNull().toMap()
+            val newContent = message.content?.replace(USER_MENTION_REGEX) {
+                val user = userInformation[it.groupValues[1]]
+                "[@${user?.userName ?: it.value}](bloc://profile/${user?.userId})"
+            }?.let { withMentions ->
+                val emojiMatches = EMOJI_REGEX.findAll(withMentions)
+                val emojis = emojiMatches.map {
+                    async {
+                        val location =
+                            revoltEmojiRepository.getEmoji(it.groupValues[1])
+                        if (location != null) {
+                            it.groupValues[1] to location
+                        } else {
+                            null
+                        }
+                    }
+                }.toList().awaitAll().filterNotNull().toMap()
+                emojiMatches.fold(withMentions) { acc, matchResult ->
+                    val name = matchResult.groupValues[1]
+                    val location = emojis[name]
+                    acc.replaceRange(
+                        matchResult.range,
+                        if (location != null)
+                            "![${matchResult.value}](${location})"
+                        else if (EmojiMap.EMOJI_DICTIONARY[name] != null)
+                            EmojiMap.EMOJI_DICTIONARY[name]!!
+                        else
+                            matchResult.value
+                    )
+                }
+            }?.replace("\n", "\n\n")
+            message.systemEventMessage?.let {
+                it.message =
+                    it.message.replace(USER_MENTION_REGEX) {
+                        val user = userInformation[it.groupValues[1]]
+                        val id =
+                            if (user != null) "@${user.userName}" else it.value
+                        "[${id}](bloc://profile/${it.groupValues[1]})"
+                    }
+            }
+            message.copy(
+                content = newContent,
+                systemEventMessage = message.systemEventMessage
+            )
+        }
 }
