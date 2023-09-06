@@ -73,6 +73,7 @@ android {
             applicationIdSuffix = ".debug"
             isDebuggable = true
         }
+
         create("benchmark") {
             initWith(buildTypes.getByName("release"))
             matchingFallbacks += listOf("release")
