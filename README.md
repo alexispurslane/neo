@@ -10,9 +10,9 @@
 <p align="center">
   
 <img src="https://github.com/alexispurslane/bloc/assets/1920151/7796940e-9007-449a-9a9d-63f301ea85e8" width="24%"/>
-<img src="https://github.com/alexispurslane/bloc/assets/1920151/bca4b906-51ce-4210-9f2e-c80e62910aa8" width="24%"/>
-<img src="https://github.com/alexispurslane/bloc/assets/1920151/dcda0fe0-dc8a-4ce9-985e-a966fa3c9b78" width="24%"/>
-<img src="https://github.com/alexispurslane/bloc/assets/1920151/56feaed3-2be2-40af-a28d-a56f9f310913" width="24%"/>
+<img src="https://github.com/alexispurslane/bloc/assets/1920151/2de26ce9-1f46-4347-859c-f5c7b4fecd5b" width="24%"/>
+<img src="https://github.com/alexispurslane/bloc/assets/1920151/0fde9f1a-11c7-42f1-a70c-9190c0b994b5" width="24%"/>
+<img src="https://github.com/alexispurslane/bloc/assets/1920151/9a65d26e-a70a-41e5-a2ad-6a4f103891b9" width="24%"/>
 
 </p>
 
@@ -56,12 +56,12 @@ Eventually Bloc will be released on F-Droid. For now, once there is a public Alp
 
 - [ ] Make the "jump to bottom" banner
 - [ ] Make the notification listener service work before the first time you open the app (it works after that even if you close the app but if you reboot it won't work again till you open it)
-- [ ] Implement displaying custom emoji
+- [x] Implement displaying custom emoji (and sending them manually)
 - [ ] Direct messages
 - [ ] Implement seeing who is on a server
-- [ ] Allow sending custom emoji
+- [ ] Emoji keyboard
 - [ ] Display and allow replies
-- [ ] Allow users to @mention others
+- [ ] Allow users to @mention others with autocompletion
 - [ ] Display/allow emoji message reactions
 - [ ] "User is typing" alerts
 - [ ] Read receipts
@@ -75,5 +75,7 @@ Eventually Bloc will be released on F-Droid. For now, once there is a public Alp
 
 - In-app vectors and icons by <a href="https://www.figma.com/community/file/1166831539721848736?ref=svgrepo.com" target="_blank">Solar Icons</a> in CC Attribution License via <a href="https://www.svgrepo.com/" target="_blank">SVG Repo</a>
 - <a href="https://www.flaticon.com/free-icons/bandana" title="bandana icons">Bandana icon created by Freepik - Flaticon</a>
+- In-app UI font is [Metropolis by Chris Simpson](https://fontsarena.com/metropolis-by-chris-simpson/)
+- In-app body text font is [Rubik by Philipp Hubert and Sebastian Fischer](https://github.com/googlefonts/Rubik)
 
 [^1]: Firebase Cloud Messaging (FCM) is what most applications on Android use. With FCM, app developers must register the server they want to produce push notifications with Google's cloud infrastructure, and then put a manifest file in their application indicating they want to recieve notifications from that server. Then Google Play Services (a piece of closed-source data-hoovering spyware) takes the list of all the applications that want push notifications and all the servers they want them from, and listens to Google's central Firebase Cloud Messaging servers, which use the configuration the app developer created on Google's cloud platform to relay push notifications from the various sources they originate from to Google Play Services, which then distributes them to the relevant apps. This of course creates privacy and centralization/monopoly concerns, since it requires all apps that want push notifications to use Google Play Services (thus locking Android users into using a version of Android made by Google) and routes all notifications through Google's services. On the other hand, Bloc's architecture bypasses that at a very, very small battery cost (["consumes about 0-1% of battery in 17h of use"](https://docs.ntfy.sh/faq/?h=battery) according to the creators of the foreground service algorithm I use). Bloc's architecture also allows recieveing push notifications from arbitrary self-hosted Revolt servers with no further setup, whereas getting traditional FCM push notifications to work would require each owner of a self-hosted Revolt server to individually connect their server to the FCM servers and then release a custom build of the app.
