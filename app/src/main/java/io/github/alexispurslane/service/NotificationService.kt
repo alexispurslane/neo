@@ -1,6 +1,7 @@
 package io.github.alexispurslane.service
 
 import android.Manifest
+import android.app.ActivityManager
 import android.app.AlarmManager
 import android.app.Notification
 import android.app.PendingIntent
@@ -149,6 +150,13 @@ class NotificationService : Service() {
         ).show()
     }
 
+    private fun isAppForeground(): Boolean {
+        val appProcessInfo = ActivityManager.RunningAppProcessInfo()
+        ActivityManager.getMyMemoryState(appProcessInfo)
+        return appProcessInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+                || appProcessInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
+    }
+
     @OptIn(DelicateCoroutinesApi::class)
     private fun startService() {
         if (isServiceStarted) return
@@ -205,7 +213,7 @@ class NotificationService : Service() {
                                     ) {
                                         val isDebuggable =
                                             0 != applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE
-                                        if (event.message.authorId != userId || isDebuggable) {
+                                        if (!isAppForeground() && (event.message.authorId != userId || isDebuggable)) {
                                             val notification =
                                                 createMessageNotification(
                                                     context,

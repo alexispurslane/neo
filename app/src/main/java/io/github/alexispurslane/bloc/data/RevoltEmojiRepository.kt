@@ -46,8 +46,14 @@ class RevoltEmojiRepository @Inject constructor(
     var currentEmojiPack = EmojiPack.MUTANT
     val deferredUntilEmojiLoaded = CompletableDeferred<Unit>()
 
+    // Maps emoji IDs to revolt emoji metadata
     val emoji: SnapshotStateMap<String, RevoltEmoji> = mutableStateMapOf()
+
+    // Maps emoji IDs to emoji filesystem cache locations
     val emojiLocations: SnapshotStateMap<String, String> = mutableStateMapOf()
+
+    // Maps emoji names to emoji IDs
+    val emojiIds: SnapshotStateMap<String, String> = mutableStateMapOf()
 
     init {
         GlobalScope.launch(Dispatchers.IO) {
@@ -60,14 +66,17 @@ class RevoltEmojiRepository @Inject constructor(
                         )
                         val files = event.emojis.map {
                             async {
-                                downloadCustomEmoji(it.emojiId)?.let { path ->
-                                    it.name to path
-                                }
+                                downloadCustomEmoji(
+                                    it.emojiId,
+                                )?.let { file -> it.emojiId to file }
                             }
-                        }.awaitAll().filterNotNull().toMap()
+                        }.awaitAll().filterNotNull()
                         withContext(Dispatchers.Main) {
                             emoji.apply {
                                 putAll(event.emojis.associateBy { it.emojiId })
+                            }
+                            emojiIds.apply {
+                                putAll(event.emojis.associate { it.name to it.emojiId })
                             }
                             emojiLocations.apply {
                                 putAll(files)
@@ -92,13 +101,22 @@ class RevoltEmojiRepository @Inject constructor(
                             val file = downloadCustomEmoji(event.emoji.name)
                             if (file != null) {
                                 emojiLocations.apply {
-                                    put(event.emoji.name, file)
+                                    put(event.emoji.emojiId, file)
+                                }
+                                emoji.apply {
+                                    put(event.emoji.emojiId, event.emoji)
+                                }
+                                emojiIds.apply {
+                                    put(event.emoji.name, event.emoji.emojiId)
                                 }
                             }
                         }
                     }
 
                     is RevoltWebSocketResponse.EmojiDelete -> {
+                        emojiLocations.apply {
+                            remove(event.emojiId)
+                        }
                         emoji.apply {
                             remove(event.emojiId)
                         }
@@ -136,15 +154,17 @@ class RevoltEmojiRepository @Inject constructor(
     suspend fun getEmoji(
         emojiIdOrName: String
     ): String? {
+        val emojiId =
+            emojiIds[emojiIdOrName] ?: emojiIdOrName
         val location =
             // Emoji referred to by name (so it's local on the server)
-            emojiLocations[emojiIdOrName]
+            emojiLocations[emojiId]
             // One last check just to see if maybe it's referred to by ID but on this server
-                ?: emojiLocations[emoji[emojiIdOrName]?.name]
+                ?: emojiLocations[emoji[emojiId]?.name]
                 // Well, it's not on this server, or else we'd have it in our database, so it must be referred to by ID and from some other server, so go download it, or just return its location if already downloaded
-                ?: downloadCustomEmoji(emojiIdOrName)
+                ?: downloadCustomEmoji(emojiId)
                 // Well, then, its one of Revolt's built in, but static, emoji!
-                ?: EmojiMap.REVOLT_CUSTOM_BUILTIN_EMOJI[emojiIdOrName]?.let { "https://dl.insrt.uk/projects/revolt/emotes/$it" }
+                ?: EmojiMap.REVOLT_CUSTOM_BUILTIN_EMOJI[emojiId]?.let { "https://dl.insrt.uk/projects/revolt/emotes/$it" }
         Log.d(
             "EMOJI REPO",
             "Got emoji $emojiIdOrName, location: $location"
@@ -152,9 +172,9 @@ class RevoltEmojiRepository @Inject constructor(
         return location
     }
 
-    private suspend fun downloadCustomEmoji(
+    suspend fun downloadCustomEmoji(
         emojiId: String,
-        urlBase: String = "${RevoltAutumnModule.autumnUrl}/emojis"
+        urlBase: String = "${RevoltAutumnModule.autumnUrl}/emojis",
     ): String? {
         return withContext(Dispatchers.IO) {
             return@withContext try {
@@ -184,7 +204,8 @@ class RevoltEmojiRepository @Inject constructor(
                         out.flush()
                     }
                 }
-                "$cacheDir/emoji-$emojiId"
+                val file = "$cacheDir/emoji-$emojiId"
+                file
             } catch (e: Exception) {
                 if (e !is FileNotFoundException) {
                     Log.e("EMOJI REPO", "Cannot download emoji $emojiId: $e")

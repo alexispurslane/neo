@@ -305,7 +305,7 @@ sealed class RevoltWebSocketResponse constructor() {
     data class MessageUnreact(
         @param:JsonProperty("type") val type: String,
         @param:JsonProperty("id") val messageId: String,
-        @param:JsonProperty("channel") val channelId: String,
+        @param:JsonProperty("channel_id") val channelId: String,
         @param:JsonProperty("user_id") val userId: String,
         @param:JsonProperty("emoji_id") val emojiId: String,
     ) : RevoltWebSocketResponse()

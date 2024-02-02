@@ -398,11 +398,11 @@ data class RevoltMessageUpdate(
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class RevoltMessageSent(
     @param:JsonProperty("content") val content: String?,
-    @param:JsonProperty("attachments") val attachments: List<AutumnFile>?,
-    @param:JsonProperty("replies") val replyIds: List<String>?,
+    @param:JsonProperty("attachments") val attachments: List<AutumnFile>? = null,
+    @param:JsonProperty("replies") val replyIds: List<String>? = null,
     @param:JsonProperty("embeds") val embeds: List<JsonNode>?,
-    @param:JsonProperty("masquerade") val masquerade: Masquerade?,
-    @param:JsonProperty("interactions") val interactions: InteractionsGuide?,
+    @param:JsonProperty("masquerade") val masquerade: Masquerade? = null,
+    @param:JsonProperty("interactions") val interactions: InteractionsGuide? = null,
 )
 
 
@@ -532,6 +532,11 @@ data class Webhook(
     @param:JsonProperty("avatar") val avatar: String?
 )
 
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class RevoltReactResponse(
+    @param:JsonProperty("type") val type: String
+)
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class RevoltMembersResponse(

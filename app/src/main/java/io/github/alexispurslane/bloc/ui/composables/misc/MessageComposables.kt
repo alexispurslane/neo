@@ -2,21 +2,25 @@ package io.github.alexispurslane.bloc.ui.composables.misc
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -36,9 +40,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.SpanStyle
@@ -57,6 +63,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.style.TextIndent
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
@@ -82,6 +89,7 @@ import io.github.alexispurslane.bloc.data.network.models.RevoltServerMember
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
 import io.github.alexispurslane.bloc.data.network.models.Role
 import io.github.alexispurslane.bloc.ui.theme.AppFont
+import io.github.alexispurslane.bloc.ui.theme.EngineeringOrange
 import io.github.alexispurslane.bloc.viewmodels.ServerChannelUiState
 import io.github.alexispurslane.bloc.viewmodels.ServerChannelViewModel
 import kotlinx.coroutines.launch
@@ -93,7 +101,7 @@ fun MessagesView(
     channelInfo: RevoltChannel.TextChannel,
     channelViewModel: ServerChannelViewModel = hiltViewModel(),
     onProfileClick: (String) -> Unit = { },
-    onMessageClick: (String) -> Unit = { }
+    onMessageClick: (String, String?, Boolean) -> Unit = { a, b, c -> }
 ) {
     if (uiState.messages.isEmpty()) {
         BeginningMessage(
@@ -125,15 +133,6 @@ fun MessagesView(
                 val entry = uiState.users[message.authorId]
                 Message(
                     modifier = Modifier
-                        .background(
-                            if (message.mentionedIds?.contains(
-                                    uiState.currentUserId
-                                ) == true
-                            )
-                                Color(0x55e3e312)
-                            else
-                                Color.Transparent
-                        )
                         .padding(vertical = 5.dp),
                     message,
                     entry?.first,
@@ -146,8 +145,9 @@ fun MessagesView(
                     prevMessage = uiState.messages.getOrNull(
                         index + 1
                     ),
+                    uiState.currentUserId,
                     onProfileClick,
-                    onMessageClick
+                    onMessageClick,
                 )
             }
             if (uiState.atBeginning) {
@@ -226,6 +226,9 @@ fun BeginningMessage(
 }
 
 @Composable
+fun dpToSp(dp: Dp) = with(LocalDensity.current) { dp.toSp() }
+
+@Composable
 fun Message(
     modifier: Modifier = Modifier,
     message: RevoltMessage,
@@ -233,13 +236,24 @@ fun Message(
     member: RevoltServerMember?,
     role: Role?,
     prevMessage: RevoltMessage? = null,
+    currentUserId: String?,
     onProfileClick: (String) -> Unit = { },
-    onMessageClick: (String) -> Unit = { }
+    onMessageClick: (String, String?, Boolean) -> Unit = { a, b, c -> },
 ) {
     Row(
         modifier = modifier
+            .background(
+                if (message.mentionedIds?.contains(
+                        currentUserId
+                    ) == true
+                )
+                    Color(0x55e3e312)
+                else
+                    Color.Transparent
+            )
             .fillMaxWidth()
-            .padding(horizontal = 15.dp),
+            .padding(horizontal = 15.dp)
+            .clickable { onMessageClick(message.messageId, null, false) },
         horizontalArrangement = Arrangement.spacedBy(
             10.dp,
             Alignment.Start
@@ -262,7 +276,7 @@ fun Message(
             }
             Column(
                 modifier = Modifier.clickable {
-                    onMessageClick(message.messageId)
+                    onMessageClick(message.messageId, null, false)
                 }
             ) {
                 if (prevMessage == null || prevMessage.authorId != message.authorId) {
@@ -290,6 +304,69 @@ fun Message(
                     CustomizableMarkdownText(
                         message.content,
                     )
+                }
+                if (message.reactions?.isNotEmpty() == true) {
+                    Row {
+                        message.reactions.forEach {
+                            val isUsersReaction =
+                                it.value.contains(currentUserId)
+                            Row(
+                                modifier = Modifier
+                                    .padding(end = 3.dp)
+                                    .let { m ->
+                                        if (isUsersReaction) {
+                                            m.border(
+                                                1.dp,
+                                                EngineeringOrange,
+                                                RoundedCornerShape(3.dp)
+                                            )
+                                        } else {
+                                            m.clip(RoundedCornerShape(3.dp))
+                                        }
+                                    }
+                                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                                    .padding(3.dp)
+                                    .clickable {
+                                        onMessageClick(
+                                            message.messageId,
+                                            it.key,
+                                            isUsersReaction
+                                        )
+                                    }
+                            ) {
+                                val split = it.key.split(":")
+                                if (split.size > 1) {
+                                    AsyncImage(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .aspectRatio(1f)
+                                            .padding(3.dp)
+                                            .clip(RoundedCornerShape(3.dp)),
+                                        model = split[0],
+                                        contentDescription = "Reaction emoji: ${split[1]}",
+                                        contentScale = ContentScale.Fit
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .aspectRatio(1f)
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .padding(3.dp)
+                                    ) {
+                                        Text(
+                                            fontSize = dpToSp(dp = 12.dp),
+                                            text = split[0]
+                                        )
+                                    }
+                                }
+                                Text(
+                                    fontSize = dpToSp(dp = 15.dp),
+                                    text = it.value.size.toString()
+                                )
+                            }
+                        }
+                    }
                 }
                 if (message.attachments?.isNotEmpty() == true) {
                     var collapseState by remember { mutableStateOf(message.attachments.size > 2) }

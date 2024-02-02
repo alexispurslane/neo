@@ -59,10 +59,15 @@ class NotificationServiceManager(private val context: Context) {
             }
 
             withContext(Dispatchers.IO) {
-                val app = context.applicationContext as Application
-                Intent(context, NotificationService::class.java).apply {
+                Intent(
+                    context.applicationContext,
+                    NotificationService::class.java
+                ).apply {
                     action = Actions.START.name
-                    ContextCompat.startForegroundService(context, this)
+                    ContextCompat.startForegroundService(
+                        context.applicationContext,
+                        this
+                    )
                 }
             }
 

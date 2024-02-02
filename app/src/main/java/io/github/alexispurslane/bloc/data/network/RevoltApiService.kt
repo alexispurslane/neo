@@ -7,15 +7,19 @@ import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 import io.github.alexispurslane.bloc.data.network.models.RevoltMembersResponse
 import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
 import io.github.alexispurslane.bloc.data.network.models.RevoltMessageSent
+import io.github.alexispurslane.bloc.data.network.models.RevoltReactResponse
 import io.github.alexispurslane.bloc.data.network.models.RevoltServer
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
 import io.github.alexispurslane.bloc.data.network.models.UserProfile
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Headers
+import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Url
@@ -105,6 +109,39 @@ interface RevoltApiService {
         @Header("Idempotency-Key") idempotency: String = UUID.randomUUID()
             .toString().take(64),
         @Path("channel_id") channelId: String,
+        @Body message: RevoltMessageSent
+    ): Response<RevoltMessage>
+
+    @PUT("channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}")
+    suspend fun addReaction(
+        @Header("x-session-token") sessionToken: String,
+        @Path("channel_id") channelId: String,
+        @Path("message_id") messageId: String,
+        @Path("emoji_id") emojiId: String,
+    ): Response<RevoltReactResponse>
+
+    @DELETE("channels/{channel_id}/messages/{message_id}/reactions/{emoji_id}")
+    suspend fun removeReaction(
+        @Header("x-session-token") sessionToken: String,
+        @Path("channel_id") channelId: String,
+        @Path("message_id") messageId: String,
+        @Path("emoji_id") emojiId: String,
+        @Query("user_id") userId: String? = null,
+        @Query("remove_all") removeAll: Boolean? = null,
+    ): Response<Unit>
+
+    @DELETE("channels/{channel_id}/messages/{message_id}")
+    suspend fun deleteMessage(
+        @Header("x-session-token") sessionToken: String,
+        @Path("channel_id") channelId: String,
+        @Path("message_id") messageId: String,
+    ): Response<Unit>
+
+    @PATCH("channels/{channel_id}/messages/{message_id}")
+    suspend fun editMessage(
+        @Header("x-session-token") sessionToken: String,
+        @Path("channel_id") channelId: String,
+        @Path("message_id") messageId: String,
         @Body message: RevoltMessageSent
     ): Response<RevoltMessage>
 }

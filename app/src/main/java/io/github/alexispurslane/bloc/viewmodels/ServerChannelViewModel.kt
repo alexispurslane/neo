@@ -3,6 +3,7 @@ package io.github.alexispurslane.bloc.viewmodels
 import android.util.Log
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -11,6 +12,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
 import io.github.alexispurslane.bloc.data.RevoltChannelsRepository
+import io.github.alexispurslane.bloc.data.RevoltEmojiRepository
 import io.github.alexispurslane.bloc.data.RevoltMessagesRepository
 import io.github.alexispurslane.bloc.data.RevoltServersRepository
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
@@ -44,6 +46,9 @@ data class ServerChannelUiState(
     val isSendError: Boolean = false,
     val sendErrorTitle: String = "",
     val sendErrorText: String = "",
+    val selectedMessage: RevoltMessage? = null,
+    val editingMessage: RevoltMessage? = null,
+    val serverEmoji: List<String> = listOf()
 )
 
 @HiltViewModel
@@ -52,6 +57,7 @@ class ServerChannelViewModel @Inject constructor(
     private val revoltServersRepository: RevoltServersRepository,
     private val revoltChannelsRepository: RevoltChannelsRepository,
     private val revoltMessagesRepository: RevoltMessagesRepository,
+    private val revoltEmojiRepository: RevoltEmojiRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -61,6 +67,16 @@ class ServerChannelViewModel @Inject constructor(
     val messageListState = LazyListState()
 
     init {
+        viewModelScope.launch {
+            snapshotFlow {
+                val emojis = revoltEmojiRepository.emojiIds.keys.toList()
+                _uiState.update {
+                    it.copy(
+                        serverEmoji = emojis
+                    )
+                }
+            }
+        }
         viewModelScope.launch {
             revoltAccountsRepository.userSessionFlow.collect {
                 if (it.userId != null) {
@@ -108,6 +124,123 @@ class ServerChannelViewModel @Inject constructor(
         }
     }
 
+    fun handleMessageClick(messageId: String) {
+        _uiState.update {
+            it.copy(
+                selectedMessage = it.messages.find { it.messageId == messageId }
+            )
+        }
+    }
+
+    fun handleMessageClose() {
+        _uiState.update {
+            it.copy(
+                selectedMessage = null
+            )
+        }
+    }
+
+    fun handleDeleteMessage() {
+        if (uiState.value.selectedMessage != null) {
+            viewModelScope.launch(Dispatchers.IO) {
+                val res = revoltMessagesRepository.deleteMessage(
+                    uiState.value.channelId!!,
+                    uiState.value.selectedMessage!!.messageId
+                )
+                when (res) {
+                    is Either.Success -> {
+                        _uiState.update { it.copy(selectedMessage = null) }
+                        Log.d("CHANNEL VIEW", "Deleted message")
+                    }
+
+                    is Either.Error -> {
+                        val split = res.value.split(':')
+                        _uiState.update {
+                            it.copy(
+                                isSendError = true,
+                                sendErrorTitle = split[0],
+                                sendErrorText = split[1]
+                            )
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+
+    fun handleReactClick(
+        messageId: String,
+        emojiUrlId: String,
+        isUsersReaction: Boolean
+    ) {
+        val split = emojiUrlId.split(":")
+        val emojiId = split.last()
+        if (!isUsersReaction) {
+            viewModelScope.launch(Dispatchers.IO) {
+                val res = revoltMessagesRepository.addReaction(
+                    uiState.value.channelId!!,
+                    messageId,
+                    emojiId
+                )
+                when (res) {
+                    is Either.Success -> {
+                        Log.d("CHANNEL VIEW", "Sent react: $emojiId")
+                    }
+
+                    is Either.Error -> {
+                        val split = res.value.split(':')
+                        _uiState.update {
+                            it.copy(
+                                isSendError = true,
+                                sendErrorTitle = split[0],
+                                sendErrorText = split[1]
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            viewModelScope.launch(Dispatchers.IO) {
+                val res = revoltMessagesRepository.removeReaction(
+                    uiState.value.channelId!!,
+                    messageId,
+                    emojiId,
+                    uiState.value.currentUserId
+                )
+                when (res) {
+                    is Either.Success -> {
+                        Log.d("CHANNEL VIEW", "Sent react: $emojiId")
+                    }
+
+                    is Either.Error -> {
+                        val split = res.value.split(':')
+                        _uiState.update {
+                            it.copy(
+                                isSendError = true,
+                                sendErrorTitle = split[0],
+                                sendErrorText = split[1]
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fun handleEditMessage() {
+        if (uiState.value.selectedMessage != null) {
+            _uiState.update {
+                it.copy(
+                    editingMessage = it.selectedMessage,
+                    selectedMessage = null,
+                    draftMessage = uiState.value.selectedMessage!!.content
+                        ?: ""
+                )
+            }
+        }
+    }
+
     fun updateMessage(new: String) {
         _uiState.update {
             it.copy(draftMessage = new)
@@ -117,24 +250,34 @@ class ServerChannelViewModel @Inject constructor(
     fun sendMessage() {
         viewModelScope.launch(Dispatchers.IO) {
             if (uiState.value.channelId != null && uiState.value.draftMessage.isNotBlank()) {
-                val content = uiState.value.draftMessage
-                val message = RevoltMessageSent(
-                    content = content,
-                    attachments = null,
-                    replyIds = null,
-                    embeds = null,
-                    masquerade = null,
-                    interactions = null
-                )
-                val res = revoltMessagesRepository.sendMessage(
-                    uiState.value.channelId!!,
-                    message
-                )
+                val res = if (uiState.value.editingMessage != null) {
+                    revoltMessagesRepository.editMessage(
+                        uiState.value.channelId!!,
+                        uiState.value.editingMessage!!.messageId,
+                        uiState.value.draftMessage,
+                        listOf()
+                    )
+                } else {
+                    val content = uiState.value.draftMessage
+                    val message = RevoltMessageSent(
+                        content = content,
+                        attachments = null,
+                        replyIds = null,
+                        embeds = null,
+                        masquerade = null,
+                        interactions = null
+                    )
+                    revoltMessagesRepository.sendMessage(
+                        uiState.value.channelId!!,
+                        message
+                    )
+                }
                 when (res) {
                     is Either.Success -> {
                         Log.d("CHANNEL VIEW", "Sent message: ${res.value}")
                         _uiState.update {
                             it.copy(
+                                editingMessage = null,
                                 draftMessage = ""
                             )
                         }

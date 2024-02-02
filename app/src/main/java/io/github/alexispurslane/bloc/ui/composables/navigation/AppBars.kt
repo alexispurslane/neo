@@ -77,6 +77,7 @@ import coil.compose.AsyncImage
 import io.github.alexispurslane.bloc.R
 import io.github.alexispurslane.bloc.data.local.RevoltAutumnModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
+import io.github.alexispurslane.bloc.ui.composables.emojipicker.ComposeEmojiPickerBottomSheetUI
 import io.github.alexispurslane.bloc.ui.theme.AppFont
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,6 +86,7 @@ import io.github.alexispurslane.bloc.ui.theme.AppFont
 fun MessageBar(
     channelName: String = "",
     value: String = "",
+    serverEmoji: List<String> = listOf(),
     onValueChange: (String) -> Unit = {},
     onSubmit: () -> Unit = {}
 ) {
@@ -94,6 +96,7 @@ fun MessageBar(
         Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Attachment
             IconButton(
                 onClick = { /*TODO*/ }) {
                 Icon(
@@ -101,6 +104,10 @@ fun MessageBar(
                     contentDescription = "Add attachment"
                 )
             }
+
+            // Message content
+            var modalEditDialogue by rememberSaveable { mutableStateOf(false) }
+
             MessageBoxTextField(
                 modifier = Modifier
                     .weight(1f)
@@ -120,7 +127,6 @@ fun MessageBar(
                 textStyle = TextStyle(fontSize = 15.sp)
             )
 
-            var modalEditDialogue by rememberSaveable { mutableStateOf(false) }
             LaunchedEffect(value.length) {
                 modalEditDialogue = value.length > 500
             }
@@ -134,13 +140,33 @@ fun MessageBar(
                 )
             }
 
+            // Emoji
+            var modalEmojiDialog by rememberSaveable { mutableStateOf(false) }
             IconButton(
-                onClick = { /*TODO*/ }) {
+                onClick = { modalEmojiDialog = true }
+            ) {
                 Icon(
                     imageVector = Icons.Filled.Favorite,
                     contentDescription = "Add emoji"
                 )
             }
+
+            if (modalEmojiDialog) {
+                var sheetState = rememberModalBottomSheetState()
+                ModalBottomSheet(
+                    sheetState = sheetState,
+                    onDismissRequest = { modalEmojiDialog = false }
+                ) {
+                    ComposeEmojiPickerBottomSheetUI(
+                        onEmojiClick = { emoji ->
+                            onValueChange(value + ":${emoji.character}:");
+                            modalEmojiDialog = false
+                        },
+                        serverEmoji = serverEmoji
+                    )
+                }
+            }
+
             IconButton(
                 onClick = onSubmit
             ) {

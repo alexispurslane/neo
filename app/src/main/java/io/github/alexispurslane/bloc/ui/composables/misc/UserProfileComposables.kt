@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import io.github.alexispurslane.bloc.data.local.RevoltAutumnModule
@@ -110,40 +111,45 @@ fun UserRow(
     modifier: Modifier = Modifier,
     iconSize: Dp = 64.dp,
     userProfile: RevoltUser,
-    relationship: RelationshipStatus? = null
+    relationship: RelationshipStatus? = null,
+    onClick: (String) -> Unit = {},
+    showFullInfo: Boolean = true
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (userProfile.avatar != null) {
-            UserAvatar(
-                size = iconSize,
-                userProfile = userProfile
-            )
-        }
+        UserAvatar(
+            size = iconSize,
+            userProfile = userProfile,
+            onClick = onClick
+        )
         Column {
             if (userProfile.displayName != null) {
                 Text(
                     "${userProfile.displayName}",
-                    fontSize = (iconSize.value / 2 - 4).sp,
+                    fontSize = kotlin.math.max(iconSize.value / 2 - 6, 12f).sp,
                     fontWeight = FontWeight.Black,
                     textAlign = TextAlign.Start,
                     fontFamily = AppFont.Metropolis
                 )
-                Text(
-                    "@${userProfile.userName}#${userProfile.discriminator}",
-                    fontSize = (iconSize.value / 4 - 4).sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Start,
-                    color = Color.LightGray,
-                    fontFamily = AppFont.Metropolis
-                )
+                if (showFullInfo)
+                    Text(
+                        "@${userProfile.userName}#${userProfile.discriminator}",
+                        fontSize = kotlin.math.max(
+                            iconSize.value / 3 - 4,
+                            12f
+                        ).sp,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Start,
+                        color = Color.LightGray,
+                        fontFamily = AppFont.Metropolis
+                    )
             } else {
                 Text(
                     "@${userProfile.userName}#${userProfile.discriminator}",
-                    fontSize = (iconSize.value / 2 - 4).sp,
+                    fontSize = kotlin.math.max(iconSize.value / 2 - 4, 12f).sp,
                     fontWeight = FontWeight.Black,
                     textAlign = TextAlign.Start,
                     fontFamily = AppFont.Metropolis
@@ -187,14 +193,16 @@ fun UserRow(
                     )
                 }
             }
-            Text(
-                userProfile.status?.customStatus ?: "",
-                fontSize = (iconSize.value / 4 - 4).sp,
-                style = TextStyle(lineHeight = 15.sp),
-                textAlign = TextAlign.Start,
-                color = Color.LightGray,
-                fontFamily = AppFont.Rubik
-            )
+            if (userProfile.status?.customStatus != null) {
+                Text(
+                    userProfile.status?.customStatus ?: "",
+                    fontSize = kotlin.math.max(iconSize.value / 3 - 4, 12f).sp,
+                    style = TextStyle(lineHeight = 15.sp),
+                    textAlign = TextAlign.Start,
+                    color = Color.LightGray,
+                    fontFamily = AppFont.Rubik
+                )
+            }
         }
     }
 }

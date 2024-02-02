@@ -3,6 +3,7 @@ package io.github.alexispurslane.bloc.data
 import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import com.fasterxml.jackson.databind.JsonNode
 import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.data.local.EmojiMap
 import io.github.alexispurslane.bloc.data.local.RevoltAutumnModule
@@ -10,6 +11,7 @@ import io.github.alexispurslane.bloc.data.network.RevoltApiModule
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
 import io.github.alexispurslane.bloc.data.network.models.RevoltMessageSent
+import io.github.alexispurslane.bloc.data.network.models.RevoltReactResponse
 import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
 import io.github.alexispurslane.bloc.findIndex
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -21,6 +23,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.internal.toImmutableMap
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -77,12 +80,84 @@ class RevoltMessagesRepository @Inject constructor(
                         }
                     }
 
+                    is RevoltWebSocketResponse.MessageReact -> {
+                        existingMessageIds[event.messageId]?.let { reverseIndex ->
+                            channelMessages[event.channelId]?.let { channel ->
+                                val index = channel.size - reverseIndex;
+                                channel.apply {
+                                    val old = get(index);
+                                    val reactions =
+                                        old.reactions?.toMutableMap()
+                                            ?: mutableMapOf()
+                                    val emoji =
+                                        (revoltEmojiRepository.getEmoji(
+                                            event.emojiId
+                                        )?.let { "$it:${event.emojiId}" })
+                                            ?: event.emojiId
+                                    reactions.compute(
+                                        emoji
+                                    ) { _, v ->
+                                        if (v == null) {
+                                            listOf(event.userId)
+                                        } else {
+                                            v + event.userId
+                                        }
+                                    }
+                                    set(
+                                        index, old.copy(
+                                            reactions = reactions.toImmutableMap()
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    is RevoltWebSocketResponse.MessageUnreact -> {
+                        existingMessageIds[event.messageId]?.let { reverseIndex ->
+                            channelMessages[event.channelId]?.let { channel ->
+                                val index = channel.size - reverseIndex;
+                                channel.apply {
+                                    val old = get(index);
+                                    val reactions =
+                                        old.reactions?.toMutableMap()
+                                            ?: mutableMapOf()
+                                    val emoji =
+                                        (revoltEmojiRepository.getEmoji(
+                                            event.emojiId
+                                        )?.let { "$it:${event.emojiId}" })
+                                            ?: event.emojiId
+                                    reactions.computeIfPresent(
+                                        emoji
+                                    ) { _, v ->
+                                        Log.d("UNREACT", v.size.toString())
+                                        val new = v - event.userId
+                                        new.ifEmpty {
+                                            null
+                                        }
+                                    }
+                                    set(
+                                        index, old.copy(
+                                            reactions = reactions.toImmutableMap()
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     is RevoltWebSocketResponse.MessageUpdate -> {
                         existingMessageIds[event.messageId]?.let { reverseIndex ->
                             channelMessages[event.channelId]?.let { channel ->
                                 val index = channel.size - reverseIndex
                                 channel.apply {
                                     val old = get(index)
+                                    Log.d(
+                                        "MESSAGE REPO",
+                                        event.data.reactions?.keys?.joinToString(
+                                            ", "
+                                        ) ?: ""
+                                    )
                                     set(
                                         index, old.copy(
                                             messageId = event.data.messageId
@@ -125,6 +200,179 @@ class RevoltMessagesRepository @Inject constructor(
                     else -> {}
                 }
             }
+        }
+    }
+
+    suspend fun addReaction(
+        channelId: String,
+        messageId: String,
+        emojiId: String
+    ): Either<RevoltReactResponse, String> {
+        val userSession = revoltAccountsRepository.userSessionFlow.first()
+        if (userSession.sessionToken == null) {
+            return Either.Error(
+                "Uh oh! Your user session token is null:You'll have to sign out and sign back in again."
+            )
+        }
+        return try {
+            val res = RevoltApiModule.service().addReaction(
+                userSession.sessionToken,
+                channelId,
+                messageId,
+                emojiId
+            )
+            val body = res.body()!!
+            val errorBody = (res.errorBody() ?: res.errorBody())?.string()
+            if (res.isSuccessful) {
+                Either.Success(body)
+            } else if (errorBody != null) {
+                val jsonObject = JSONObject(errorBody.trim())
+                Either.Error(
+                    "Uh oh! ${res.message()}:The server error was '${
+                        jsonObject.getString(
+                            "type"
+                        )
+                    }'"
+                )
+            } else {
+                Either.Error(
+                    "Uh oh! The server returned an error:${res.message()}"
+                )
+            }
+        } catch (e: Exception) {
+            Either.Error(
+                "Uh oh! Was unable to send a message to the server: ${e.message}"
+            )
+        }
+    }
+
+    suspend fun removeReaction(
+        channelId: String,
+        messageId: String,
+        emojiId: String,
+        userId: String? = null,
+        removeAll: Boolean? = null
+    ): Either<Unit, String> {
+        val userSession = revoltAccountsRepository.userSessionFlow.first()
+        if (userSession.sessionToken == null) {
+            return Either.Error(
+                "Uh oh! Your user session token is null:You'll have to sign out and sign back in again."
+            )
+        }
+        return try {
+            val res = RevoltApiModule.service().removeReaction(
+                userSession.sessionToken,
+                channelId,
+                messageId,
+                emojiId,
+                userId,
+                removeAll
+            )
+            val errorBody = (res.errorBody() ?: res.errorBody())?.string()
+            if (res.isSuccessful) {
+                Either.Success(Unit)
+            } else if (errorBody != null) {
+                val jsonObject = JSONObject(errorBody.trim())
+                Either.Error(
+                    "Uh oh! ${res.message()}:The server error was '${
+                        jsonObject.getString(
+                            "type"
+                        )
+                    }'"
+                )
+            } else {
+                Either.Error(
+                    "Uh oh! The server returned an error:${res.message()}"
+                )
+            }
+        } catch (e: Exception) {
+            Either.Error(
+                "Uh oh! Was unable to send a message to the server: ${e.message}"
+            )
+        }
+    }
+
+    suspend fun editMessage(
+        channelId: String,
+        messageId: String,
+        content: String,
+        embeds: List<JsonNode>
+    ): Either<RevoltMessage, String> {
+        val userSession = revoltAccountsRepository.userSessionFlow.first()
+        if (userSession.sessionToken == null) {
+            return Either.Error(
+                "Uh oh! Your user session token is null:You'll have to sign out and sign back in again."
+            )
+        }
+        return try {
+            val res = RevoltApiModule.service().editMessage(
+                userSession.sessionToken,
+                channelId,
+                messageId,
+                RevoltMessageSent(content = content, embeds = embeds)
+            )
+            val body = res.body()!!
+            val errorBody = (res.errorBody() ?: res.errorBody())?.string()
+            if (res.isSuccessful) {
+                Either.Success(body)
+            } else if (errorBody != null) {
+                val jsonObject = JSONObject(errorBody.trim())
+                Either.Error(
+                    "Uh oh! ${res.message()}:The server error was '${
+                        jsonObject.getString(
+                            "type"
+                        )
+                    }'"
+                )
+            } else {
+                Either.Error(
+                    "Uh oh! The server returned an error:${res.message()}"
+                )
+            }
+        } catch (e: Exception) {
+            Either.Error(
+                "Uh oh! Was unable to send a message to the server: ${e.message}"
+            )
+        }
+    }
+
+    suspend fun deleteMessage(
+        channelId: String,
+        messageId: String,
+    ): Either<Unit, String> {
+        val userSession = revoltAccountsRepository.userSessionFlow.first()
+        if (userSession.sessionToken == null) {
+            return Either.Error(
+                "Uh oh! Your user session token is null:You'll have to sign out and sign back in again."
+            )
+        }
+        return try {
+            val res = RevoltApiModule.service().deleteMessage(
+                userSession.sessionToken,
+                channelId,
+                messageId,
+            )
+            val errorBody = (res.errorBody() ?: res.errorBody())?.string()
+            if (res.isSuccessful) {
+                Either.Success(Unit)
+            } else if (errorBody != null) {
+                val jsonObject = JSONObject(errorBody.trim())
+                Either.Error(
+                    "Uh oh! ${res.message()}:The server error was '${
+                        jsonObject.getString(
+                            "type"
+                        )
+                    }'"
+                )
+            } else {
+                Either.Error(
+                    "Uh oh! The server returned an error:${res.message()}"
+                )
+            }
+        } catch (e: Exception) {
+            Either.Error(
+                "Uh oh! Was unable to send a message to the server: ${e.message}"
+            )
         }
     }
 
@@ -365,9 +613,21 @@ class RevoltMessagesRepository @Inject constructor(
                         "[${id}](bloc://profile/${it.groupValues[1]})"
                     }
             }
+            val newReactions =
+                message.reactions?.map {
+                    Log.d(
+                        "TREATMENT PLANT",
+                        revoltEmojiRepository.getEmoji(it.key) ?: it.key
+                    )
+
+                    ((revoltEmojiRepository.getEmoji(it.key)
+                        ?.let { url -> "$url:${it.key}" })
+                        ?: it.key) to it.value
+                }?.toMap()
             message.copy(
                 content = newContent,
-                systemEventMessage = message.systemEventMessage
+                systemEventMessage = message.systemEventMessage,
+                reactions = newReactions
             )
         }
 }

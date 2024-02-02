@@ -15,12 +15,12 @@ plugins {
 
 android {
     namespace = "io.github.alexispurslane.bloc"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "io.github.alexispurslane.bloc"
         minSdk = 31
-        targetSdk = 33
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0-alpha.1"
 
@@ -162,6 +162,9 @@ dependencies {
 
     implementation("androidx.profileinstaller:profileinstaller:1.3.1")
     implementation("androidx.benchmark:benchmark-macro-junit4:1.1.1")
+
+    implementation("com.github.Abhimanyu14:emoji-core:1.0.4")
+    implementation("androidx.emoji2:emoji2:1.4.0")
 
     kapt("com.google.dagger:hilt-android-compiler:2.44")
     testImplementation("junit:junit:4.13.2")

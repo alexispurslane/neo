@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import io.github.alexispurslane.bloc.LoadingScreen
 import io.github.alexispurslane.bloc.data.network.models.RelationshipStatus
@@ -30,12 +31,17 @@ import io.github.alexispurslane.bloc.viewmodels.UserProfileViewModel
 
 @Composable
 fun UserProfileScreen(
+    navController: NavController,
     userProfileViewModel: UserProfileViewModel = hiltViewModel()
 ) {
     val uiState by userProfileViewModel.uiState.collectAsState()
 
     if (uiState.userProfile != null) {
-        UserProfileCard(uiState.userProfile!!, uiState.relationships)
+        UserProfileCard(
+            uiState.userProfile!!,
+            navController,
+            uiState.relationships
+        )
     } else {
         LoadingScreen()
     }
@@ -44,6 +50,7 @@ fun UserProfileScreen(
 @Composable
 fun UserProfileCard(
     userProfile: State<RevoltUser>,
+    navController: NavController,
     relationships: Map<RelationshipStatus, State<RevoltUser>>
 ) {
     Column(
@@ -65,7 +72,10 @@ fun UserProfileCard(
                     modifier = Modifier.padding(vertical = 10.dp),
                     iconSize = 40.dp,
                     userProfile = relationship.value.value,
-                    relationship = relationship.key
+                    relationship = relationship.key,
+                    onClick = { userId ->
+                        navController.navigate("profile/$userId")
+                    }
                 )
             }
         }

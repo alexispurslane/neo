@@ -4,7 +4,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
@@ -18,7 +18,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Bloc"
         android:name=".MainApplication"
-        tools:targetApi="31">
+        tools:targetApi="34">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -64,6 +64,7 @@
 
         <service
             android:name="io.github.alexispurslane.service.NotificationService"
+            android:foregroundServiceType="remoteMessaging"
             android:enabled="true"
             android:stopWithTask="false"
             android:exported="false" />
