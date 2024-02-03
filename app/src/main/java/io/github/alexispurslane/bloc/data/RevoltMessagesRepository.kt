@@ -25,6 +25,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.internal.toImmutableMap
 import org.json.JSONObject
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,8 +40,6 @@ class RevoltMessagesRepository @Inject constructor(
 ) {
     private val channelMessages: MutableMap<String, SnapshotStateList<RevoltMessage>> =
         mutableMapOf()
-
-    private val existingMessageIds: HashMap<String, Int> = hashMapOf()
 
     private val USER_MENTION_REGEX by lazy { Regex("<@([a-zA-Z0-9]+)>") }
     private val EMOJI_REGEX by lazy { Regex(":([a-zA-Z0-9_]+):") }
@@ -51,149 +53,136 @@ class RevoltMessagesRepository @Inject constructor(
                             "MESSAGE REPO",
                             "New message with id ${event.message.messageId} and content \"${event.message.content}\""
                         )
-                        if (!existingMessageIds.contains(event.message.messageId)) {
-                            Log.d(
-                                "MESSAGE REPO",
-                                "Message not already received, adding it"
-                            )
-                            val len =
-                                channelMessages[event.message.channelId]?.size
-                                    ?: 0
-                            channelMessages[event.message.channelId]?.apply {
-                                add(0, treatMessage(event.message))
-                            }
-                            existingMessageIds.set(
-                                event.message.messageId,
-                                len + 1
-                            )
+                        channelMessages[event.message.channelId]?.apply {
+                            add(0, treatMessage(event.message))
                         }
                     }
 
                     is RevoltWebSocketResponse.MessageDelete -> {
-                        existingMessageIds[event.messageId]?.let { reverseIndex ->
-                            channelMessages[event.channelId]?.let { channel ->
-                                val index = channel.size - reverseIndex
-                                channel.apply {
-                                    removeAt(index)
+                        channelMessages[event.channelId]?.let { channel ->
+                            channel.findIndex { i, m -> m.messageId == event.messageId }
+                                ?.let { index ->
+                                    channel.apply {
+                                        removeAt(index)
+                                    }
                                 }
-                            }
                         }
                     }
 
                     is RevoltWebSocketResponse.MessageReact -> {
-                        existingMessageIds[event.messageId]?.let { reverseIndex ->
-                            channelMessages[event.channelId]?.let { channel ->
-                                val index = channel.size - reverseIndex;
-                                channel.apply {
-                                    val old = get(index);
-                                    val reactions =
-                                        old.reactions?.toMutableMap()
-                                            ?: mutableMapOf()
-                                    val emoji =
-                                        (revoltEmojiRepository.getEmoji(
-                                            event.emojiId
-                                        )?.let { "$it:${event.emojiId}" })
-                                            ?: event.emojiId
-                                    reactions.compute(
-                                        emoji
-                                    ) { _, v ->
-                                        if (v == null) {
-                                            listOf(event.userId)
-                                        } else {
-                                            v + event.userId
+                        channelMessages[event.channelId]?.let { channel ->
+                            channel.apply {
+                                channel.findIndex { i, m -> m.messageId == event.messageId }
+                                    ?.let { index ->
+                                        val old = get(index);
+                                        val reactions =
+                                            old.reactions?.toMutableMap()
+                                                ?: mutableMapOf()
+                                        val emoji =
+                                            (revoltEmojiRepository.getEmoji(
+                                                event.emojiId
+                                            )?.let { "$it:${event.emojiId}" })
+                                                ?: event.emojiId
+                                        reactions.compute(
+                                            emoji
+                                        ) { _, v ->
+                                            if (v == null) {
+                                                listOf(event.userId)
+                                            } else {
+                                                v + event.userId
+                                            }
                                         }
-                                    }
-                                    set(
-                                        index, old.copy(
-                                            reactions = reactions.toImmutableMap()
+                                        set(
+                                            index, old.copy(
+                                                reactions = reactions.toImmutableMap()
+                                            )
                                         )
-                                    )
-                                }
+                                    }
                             }
                         }
                     }
 
                     is RevoltWebSocketResponse.MessageUnreact -> {
-                        existingMessageIds[event.messageId]?.let { reverseIndex ->
-                            channelMessages[event.channelId]?.let { channel ->
-                                val index = channel.size - reverseIndex;
-                                channel.apply {
-                                    val old = get(index);
-                                    val reactions =
-                                        old.reactions?.toMutableMap()
-                                            ?: mutableMapOf()
-                                    val emoji =
-                                        (revoltEmojiRepository.getEmoji(
-                                            event.emojiId
-                                        )?.let { "$it:${event.emojiId}" })
-                                            ?: event.emojiId
-                                    reactions.computeIfPresent(
-                                        emoji
-                                    ) { _, v ->
-                                        Log.d("UNREACT", v.size.toString())
-                                        val new = v - event.userId
-                                        new.ifEmpty {
-                                            null
+                        channelMessages[event.channelId]?.let { channel ->
+                            channel.apply {
+                                channel.findIndex { i, m -> m.messageId == event.messageId }
+                                    ?.let { index ->
+                                        val old = get(index);
+                                        val reactions =
+                                            old.reactions?.toMutableMap()
+                                                ?: mutableMapOf()
+                                        val emoji =
+                                            (revoltEmojiRepository.getEmoji(
+                                                event.emojiId
+                                            )?.let { "$it:${event.emojiId}" })
+                                                ?: event.emojiId
+                                        reactions.computeIfPresent(
+                                            emoji
+                                        ) { _, v ->
+                                            Log.d("UNREACT", v.size.toString())
+                                            val new = v - event.userId
+                                            new.ifEmpty {
+                                                null
+                                            }
                                         }
-                                    }
-                                    set(
-                                        index, old.copy(
-                                            reactions = reactions.toImmutableMap()
+                                        set(
+                                            index, old.copy(
+                                                reactions = reactions.toImmutableMap()
+                                            )
                                         )
-                                    )
-                                }
+                                    }
                             }
                         }
                     }
 
                     is RevoltWebSocketResponse.MessageUpdate -> {
-                        existingMessageIds[event.messageId]?.let { reverseIndex ->
-                            channelMessages[event.channelId]?.let { channel ->
-                                val index = channel.size - reverseIndex
-                                channel.apply {
-                                    val old = get(index)
-                                    Log.d(
-                                        "MESSAGE REPO",
-                                        event.data.reactions?.keys?.joinToString(
-                                            ", "
-                                        ) ?: ""
-                                    )
-                                    set(
-                                        index, old.copy(
-                                            messageId = event.data.messageId
-                                                ?: old.messageId,
-                                            nonce = event.data.nonce
-                                                ?: old.nonce,
-                                            channelId = event.data.channelId
-                                                ?: old.channelId,
-                                            authorId = event.data.authorId
-                                                ?: old.authorId,
-                                            webhook = event.data.webhook
-                                                ?: old.webhook,
-                                            content = event.data.content
-                                                ?: old.content,
-                                            systemEventMessage = event.data.systemEventMessage
-                                                ?: old.systemEventMessage,
-                                            attachments = event.data.attachments
-                                                ?: old.attachments,
-                                            edited = event.data.edited
-                                                ?: old.edited,
-                                            embeds = event.data.embeds
-                                                ?: old.embeds,
-                                            mentionedIds = event.data.mentionedIds
-                                                ?: old.mentionedIds,
-                                            replyIds = event.data.replyIds
-                                                ?: old.replyIds,
-                                            reactions = event.data.reactions
-                                                ?: old.reactions,
-                                            interactions = event.data.interactions
-                                                ?: old.interactions,
-                                            masquerade = event.data.masquerade
-                                                ?: old.masquerade
+                        channelMessages[event.channelId]?.let { channel ->
+                            channel.findIndex { i, m -> m.messageId == event.messageId }
+                                ?.let { index ->
+                                    channel.apply {
+                                        val old = get(index)
+                                        Log.d(
+                                            "MESSAGE REPO",
+                                            event.data.reactions?.keys?.joinToString(
+                                                ", "
+                                            ) ?: ""
                                         )
-                                    )
+                                        set(
+                                            index, old.copy(
+                                                messageId = event.data.messageId
+                                                    ?: old.messageId,
+                                                nonce = event.data.nonce
+                                                    ?: old.nonce,
+                                                channelId = event.data.channelId
+                                                    ?: old.channelId,
+                                                authorId = event.data.authorId
+                                                    ?: old.authorId,
+                                                webhook = event.data.webhook
+                                                    ?: old.webhook,
+                                                content = event.data.content
+                                                    ?: old.content,
+                                                systemEventMessage = event.data.systemEventMessage
+                                                    ?: old.systemEventMessage,
+                                                attachments = event.data.attachments
+                                                    ?: old.attachments,
+                                                edited = event.data.edited
+                                                    ?: old.edited,
+                                                embeds = event.data.embeds
+                                                    ?: old.embeds,
+                                                mentionedIds = event.data.mentionedIds
+                                                    ?: old.mentionedIds,
+                                                replyIds = event.data.replyIds
+                                                    ?: old.replyIds,
+                                                reactions = event.data.reactions
+                                                    ?: old.reactions,
+                                                interactions = event.data.interactions
+                                                    ?: old.interactions,
+                                                masquerade = event.data.masquerade
+                                                    ?: old.masquerade
+                                            )
+                                        )
+                                    }
                                 }
-                            }
                         }
                     }
 
@@ -467,14 +456,11 @@ class RevoltMessagesRepository @Inject constructor(
                             }
                         } else {
                             channelMessages.getOrPut(
-                                channelId,
-                                { mutableStateListOf() }).apply {
+                                channelId
+                            ) { mutableStateListOf() }.apply {
                                 addAll(body)
                             }
                         }
-                        existingMessageIds.putAll(
-                            body.mapIndexed { i, m -> m.messageId to (body.size - i + len) }
-                        )
                         Log.d("MESSAGE REPO", "Bulk message fetch")
                         Log.d("MESSAGE REPO", "previous channel len: $len")
                         Log.d("MESSAGE REPO", "adding ${body.size} messages")
@@ -624,10 +610,21 @@ class RevoltMessagesRepository @Inject constructor(
                         ?.let { url -> "$url:${it.key}" })
                         ?: it.key) to it.value
                 }?.toMap()
+            val newEdited =
+                message.edited
+                    ?: DateTimeFormatter.ISO_DATE_TIME
+                        .format(
+                            LocalDateTime.now()
+                        )
+            Log.d(
+                "MESSAGE REPO",
+                "Message ID: ${message.messageId}${newEdited}"
+            )
             message.copy(
                 content = newContent,
                 systemEventMessage = message.systemEventMessage,
-                reactions = newReactions
+                reactions = newReactions,
+                edited = newEdited
             )
         }
 }

@@ -127,7 +127,7 @@ fun MessagesView(
         ) {
             itemsIndexed(
                 uiState.messages,
-                key = { _, it -> it.messageId },
+                key = { _, it -> "${it.messageId}${it.edited}" },
                 contentType = { _, _ -> "Message" }
             ) { index, message ->
                 val entry = uiState.users[message.authorId]
