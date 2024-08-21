@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "io.github.alexispurslane.bloc"
-    compileSdk = 33
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "io.github.alexispurslane.bloc"
         minSdk = 31
-        targetSdk = 33
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0-alpha.1"
 

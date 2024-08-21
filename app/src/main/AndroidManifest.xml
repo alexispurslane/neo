@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
 
     <application
         android:allowBackup="true"
@@ -66,6 +67,7 @@
             android:name="io.github.alexispurslane.service.NotificationService"
             android:enabled="true"
             android:stopWithTask="false"
+            android:foregroundServiceType="remoteMessaging"
             android:exported="false" />
 
         <!--suppress AndroidElementNotAllowed -->
