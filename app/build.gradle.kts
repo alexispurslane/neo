@@ -1,8 +1,9 @@
 plugins {
-    kotlin("kapt")
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -26,8 +27,8 @@ android {
         abi {
             isEnable = true
             reset()
-            include("x86", "x86_64", "armeabi", "armeabi-v7a")
-            isUniversalApk = false
+            include("armeabi", "armeabi-v7a", "arm64-v8a")
+            isUniversalApk = true
         }
     }
 
@@ -84,50 +85,54 @@ task<Exec>("appStart") {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
 
-    implementation("androidx.activity:activity-compose:1.7.2")
-    implementation(platform("androidx.compose:compose-bom:2023.03.00"))
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.activity:activity-compose:1.9.1")
+    implementation(platform("androidx.compose:compose-bom:2024.08.00"))
+    implementation("androidx.compose.ui:ui:1.6.8")
+    implementation("androidx.compose.ui:ui-graphics:1.6.8")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.6.8")
 
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
 
-    implementation("androidx.compose.material3:material3:1.1.1")
+    implementation("androidx.compose.material3:material3:1.2.1")
 
     implementation("net.folivo:trixnity-client:4.6.1")
     implementation("net.folivo:trixnity-client-repository-realm:4.6.1")
     implementation("net.folivo:trixnity-client-media-okio-jvm:4.6.1")
 
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
 
-    implementation("com.google.dagger:hilt-android:2.44")
-    implementation("androidx.hilt:hilt-navigation-compose:1.0.0")
 
-    implementation("androidx.navigation:navigation-compose:2.6.0")
+
+    ksp("com.google.dagger:dagger-compiler:2.48")// Dagger compiler
+    ksp("com.google.dagger:hilt-compiler:2.48")  // Hilt compiler    ksp("com.google.dagger:hilt-android-compiler:2.44")
+    implementation("com.google.dagger:hilt-android:2.49")
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+
+    implementation("androidx.navigation:navigation-compose:2.7.7")
 
     implementation("com.halilibo.compose-richtext:richtext-ui:0.17.0")
     implementation("com.halilibo.compose-richtext:richtext-ui-material3:0.17.0")
     implementation("com.halilibo.compose-richtext:richtext-commonmark:0.17.0")
 
-    implementation("androidx.work:work-runtime:2.8.1")
-    implementation("androidx.work:work-runtime-ktx:2.8.1")
-    implementation("androidx.work:work-gcm:2.8.1")
+    implementation("androidx.work:work-runtime:2.9.1")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation("androidx.work:work-gcm:2.9.1")
 
-    implementation("io.coil-kt:coil:2.4.0")
-    implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("io.coil-kt:coil:2.7.0")
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
-    implementation("androidx.work:work-multiprocess:2.8.1")
+    implementation("androidx.work:work-multiprocess:2.9.1")
 
     implementation("androidx.profileinstaller:profileinstaller:1.3.1")
-    implementation("androidx.benchmark:benchmark-macro-junit4:1.1.1")
+    implementation("androidx.benchmark:benchmark-macro-junit4:1.3.0")
 
-    kapt("com.google.dagger:hilt-android-compiler:2.44")
     testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2023.03.00"))
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.08.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

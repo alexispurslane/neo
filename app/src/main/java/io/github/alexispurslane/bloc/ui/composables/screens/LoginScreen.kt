@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
@@ -75,7 +76,6 @@ import io.github.alexispurslane.bloc.viewmodels.LoginViewModel
 import kotlinx.coroutines.launch
 
 const val URL_REGEX = "^(https?)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]"
-const val EMAIL_REGEX = "(?:[a-z0-9!#\$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#\$%&'*+/=?^_`{|}~-]+)*|\"(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21\\x23-\\x5b\\x5d-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])*\")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\\x01-\\x08\\x0b\\x0c\\x0e-\\x1f\\x21-\\x5a\\x53-\\x7f]|\\\\[\\x01-\\x09\\x0b\\x0c\\x0e-\\x7f])+)\\])"
 
 
 @Composable
@@ -99,26 +99,17 @@ fun LoginScreen(
                 Modifier
                     .align(Alignment.CenterHorizontally))
 
-            if (!uiState.mfa) {
-                InstanceEmailPasswordLoginForm(
+                InstanceUsernamePasswordLoginForm(
                     uiState.instanceApiUrl,
-                    uiState.instanceEmailAddress,
+                    uiState.instanceUserName,
                     uiState.instancePassword,
                     uiState.urlValidated,
                     uiState.urlValidationMessage,
                     loginViewModel::onInstanceInfoChange,
                     { loginViewModel.onLogin(setLoggedIn) },
-                    loginViewModel::testApiUrl,
-                )
-            } else {
-                MultiFactorLoginForm(
-                    uiState.mfaAllowedMethods,
-                    loginViewModel::onBack,
-                    { a, b -> (loginViewModel::onMultiFactorLoginConfirm)(a, b, setLoggedIn) }
                 )
             }
         }
-    }
 
     if (uiState.isLoginError) {
         ErrorDialog(
@@ -270,18 +261,16 @@ fun MultiFactorLoginForm(
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
-fun InstanceEmailPasswordLoginForm(
+fun InstanceUsernamePasswordLoginForm(
     instanceApiUrl: String,
-    instanceEmailAddress: String,
+    instanceUsername: String,
     instancePassword: String,
     urlValidated: Boolean,
     urlValidationMessage: String,
     onInstanceInfoChange: (String, String, String) -> Unit,
     onLogin: () -> Unit,
-    testApiUrl: () -> Unit,
 ) {
     val isValidUrl = instanceApiUrl.matches(Regex(URL_REGEX))
-    val isValidEmail = instanceEmailAddress.matches(Regex(EMAIL_REGEX))
 
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     val coroutineScope = rememberCoroutineScope()
@@ -305,19 +294,19 @@ fun InstanceEmailPasswordLoginForm(
         value = instanceApiUrl,
         urlValidated = urlValidated,
         urlValidationMessage = urlValidationMessage,
-        onValueChange = { onInstanceInfoChange(it, instanceEmailAddress, instancePassword) }
+        onValueChange = { onInstanceInfoChange(it, instanceUsername, instancePassword) }
     )
 
-    EmailAddressField(
+    UsernameField(
         modifier = modifier,
-        value = instanceEmailAddress,
+        value = instanceUsername,
         onValueChange = { onInstanceInfoChange(instanceApiUrl, it, instancePassword) }
     )
 
     PasswordField(
         modifier = modifier,
         value = instancePassword,
-        onValueChange = { onInstanceInfoChange(instanceApiUrl, instanceEmailAddress, it) }
+        onValueChange = { onInstanceInfoChange(instanceApiUrl, instanceUsername, it) }
     )
 
     Column(
@@ -327,21 +316,10 @@ fun InstanceEmailPasswordLoginForm(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            enabled = isValidUrl && isValidEmail && instancePassword.isNotBlank(),
-            onClick = { if (isValidUrl && isValidEmail && instancePassword.isNotBlank()) onLogin() }
+            enabled = isValidUrl && instanceUsername.isNotBlank() && instancePassword.isNotBlank(),
+            onClick = { if (isValidUrl && instanceUsername.isNotBlank() && instancePassword.isNotBlank()) onLogin() }
         ) {
             Text("Log In")
-        }
-
-        OutlinedButton(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            enabled = isValidUrl,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary),
-            onClick = { if (isValidUrl) testApiUrl() }
-        ) {
-            Text("Test API URL")
         }
     }
 }
@@ -387,9 +365,8 @@ fun UrlField(modifier: Modifier, value: String, urlValidated: Boolean, urlValida
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun EmailAddressField(modifier: Modifier, value: String, onValueChange: (String) -> Unit) {
+fun UsernameField(modifier: Modifier, value: String, onValueChange: (String) -> Unit) {
     val focusManager = LocalFocusManager.current
-    val isValidEmail = value.matches(Regex(EMAIL_REGEX))
 
     OutlinedTextField(
         modifier = modifier.autofill(
@@ -398,13 +375,13 @@ fun EmailAddressField(modifier: Modifier, value: String, onValueChange: (String)
         ),
         value = value,
         onValueChange = onValueChange,
-        placeholder = { Text("Email address...") },
+        placeholder = { Text("Full Username...") },
         supportingText = {
-            if (!isValidEmail && value.isNotBlank()) {
-                Text("Please enter a valid email address", color = MaterialTheme.colorScheme.error)
+            if (value.isBlank()) {
+                Text("Please enter a valid username", color = MaterialTheme.colorScheme.error)
             }
         },
-        isError = !isValidEmail && value.isNotEmpty(),
+        isError = value.isBlank(),
         singleLine = true,
         keyboardActions = KeyboardActions(
             onDone = {
@@ -419,8 +396,8 @@ fun EmailAddressField(modifier: Modifier, value: String, onValueChange: (String)
         ),
         leadingIcon = {
             Icon(
-                imageVector = Icons.Filled.Email,
-                contentDescription = "Email address icon"
+                imageVector = Icons.Filled.Person,
+                contentDescription = "Username icon"
             )
         }
     )

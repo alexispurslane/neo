@@ -7,8 +7,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.data.AccountsRepository
-import io.github.alexispurslane.bloc.data.network.models.RelationshipStatus
-import io.github.alexispurslane.bloc.data.network.models.RevoltUser
+import io.github.alexispurslane.bloc.data.models.User
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -18,13 +17,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.folivo.trixnity.client.user
+import net.folivo.trixnity.core.model.UserId
 import javax.inject.Inject
 
 data class UserProfileUiState(
     val editing: Boolean = false,
     val currentUserId: String? = null,
-    val userProfile: RevoltUser? = null,
-    val relationships: Map<RelationshipStatus, RevoltUser> = mapOf()
+    val userProfile: User? = null
 )
 
 @HiltViewModel
@@ -48,45 +48,21 @@ class UserProfileViewModel @Inject constructor(
 
     private suspend fun initializeUserProfile(userId: String) =
         coroutineScope {
-            when (val userProfile =
-                accountsRepository.fetchUserInformation(userId)) {
-                is Either.Success -> {
-                    Log.d(
-                        "USER PROFILE",
-                        "${userId} relations: ${userProfile.value.relations}"
-                    )
-                    _uiState.update {
-                        it.copy(
-                            currentUserId = userId,
-                            userProfile = userProfile.value,
-                            relationships = userProfile.value.relations?.map {
-                                async {
-                                    val userProfile =
-                                        accountsRepository.fetchUserInformation(
-                                            it.userId
-                                        )
-                                    Log.d(
-                                        "USER PROFILE",
-                                        "${it.status.toString()}: ${userProfile.toString()}"
-                                    )
-                                    if (userProfile is Either.Success) {
-                                        it.status to userProfile.value
-                                    } else {
-                                        null
-                                    }
-                                }
-                            }?.awaitAll()?.filterNotNull()?.associate { it!! }
-                                .orEmpty()
-                        )
-                    }
-                }
-
-                is Either.Error -> {
-                    Log.d(
-                        "USER PROFILE",
-                        "Failed to get user profile: ${userProfile.value}"
+            val userProfile = accountsRepository.fetchUserInformation(UserId(userId)).onSuccess {
+                Log.d(
+                    "USER PROFILE",
+                    "${userId} display name: ${it.displayName}"
+                )
+                _uiState.update {
+                    it.copy(
+                        currentUserId = userId,
                     )
                 }
+            }.onFailure {
+                Log.d(
+                    "USER PROFILE",
+                    "Failed to get user profile: $it"
+                )
             }
         }
 }

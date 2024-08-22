@@ -109,7 +109,7 @@ class MainViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             accountsRepository.userSessionFlow.collect { userSession ->
-                setLoggedIn(userSession.sessionToken != null)
+                setLoggedIn(true)
             }
         }
     }

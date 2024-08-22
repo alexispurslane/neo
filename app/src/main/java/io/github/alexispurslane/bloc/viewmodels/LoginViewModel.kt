@@ -6,21 +6,18 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.data.AccountsRepository
-import io.github.alexispurslane.bloc.data.network.RevoltApiModule
-import io.github.alexispurslane.bloc.data.network.models.LoginRequest
-import io.github.alexispurslane.bloc.data.network.models.LoginResponse
-import io.github.alexispurslane.bloc.data.network.models.MFAResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.folivo.trixnity.client.MatrixClient
 import javax.inject.Inject
 
 data class LoginUiState(
     val instanceApiUrl: String = "",
-    val instanceEmailAddress: String = "",
+    val instanceUserName: String = "",
     val instancePassword: String = "",
     val urlValidated: Boolean = false,
     val urlValidationMessage: String = "",
@@ -48,8 +45,8 @@ class LoginViewModel @Inject constructor(
                 prevState.copy(
                     instanceApiUrl = if (prevState.instanceApiUrl.isEmpty()) userSession.instanceApiUrl
                         ?: "" else prevState.instanceApiUrl,
-                    instanceEmailAddress = if (prevState.instanceEmailAddress.isEmpty()) userSession.emailAddress
-                        ?: "" else prevState.instanceEmailAddress,
+                    instanceUserName = if (prevState.instanceUserName.isEmpty()) userSession.userId
+                        ?: "" else prevState.instanceUserName,
                 )
             }
         }
@@ -59,7 +56,7 @@ class LoginViewModel @Inject constructor(
         _uiState.update { prevState ->
             prevState.copy(
                 instanceApiUrl = apiUrl,
-                instanceEmailAddress = email,
+                instanceUserName = email,
                 instancePassword = pass
             )
         }
@@ -73,34 +70,7 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             val loginResponse = revoltAccountRepository.login(
                 uiState.value.instanceApiUrl,
-                uiState.value.instanceEmailAddress,
-                websocketUrl!!,
-                autumnUrl!!,
-                LoginRequest.MFA(
-                    mfaTicket = uiState.value.mfaTicket,
-                    mfaResponse = when (mfaMethod) {
-                        "Password" -> MFAResponse(
-                            password = mfaResponse,
-                            null,
-                            null
-                        )
-
-                        "Recovery" -> MFAResponse(
-                            null,
-                            null,
-                            recoveryCode = mfaResponse.trim()
-                        )
-
-                        "Totp" -> MFAResponse(
-                            null,
-                            totpCode = mfaResponse.trim(),
-                            null
-                        )
-
-                        else -> return@launch
-                    },
-                    friendlyName = "Bloc",
-                )
+                uiState.value.instanceUserName
             )
 
             handleLoginResponse(loginResponse, setLoggedIn)
@@ -112,20 +82,12 @@ class LoginViewModel @Inject constructor(
             val urlValidated = if (uiState.value.urlValidated) {
                 true
             } else {
-                testApiUrlSuspend()
                 uiState.value.urlValidated
             }
             if (urlValidated) {
                 val loginResponse = revoltAccountRepository.login(
                     uiState.value.instanceApiUrl,
-                    uiState.value.instanceEmailAddress,
-                    websocketUrl!!,
-                    autumnUrl!!,
-                    LoginRequest.Basic(
-                        email = uiState.value.instanceEmailAddress,
-                        password = uiState.value.instancePassword,
-                        friendlyName = "Bloc"
-                    )
+                    uiState.value.instanceUserName,
                 )
                 handleLoginResponse(loginResponse, setLoggedIn)
             }
@@ -133,45 +95,19 @@ class LoginViewModel @Inject constructor(
     }
 
     private fun handleLoginResponse(
-        loginResponse: Either<LoginResponse, String>,
+        loginResponse: Boolean,
         setLoggedIn: (Boolean) -> Unit
     ) {
         _uiState.update { prevState ->
-            when (loginResponse) {
-                is Either.Success -> {
-                    Log.d("SIGNIN SUCCESS", loginResponse.toString())
-                    when (loginResponse.value) {
-                        is LoginResponse.Success -> {
-                            setLoggedIn(true)
-                            prevState
-                        }
-
-                        is LoginResponse.MFA -> {
-                            prevState.copy(
-                                mfa = true,
-                                mfaAllowedMethods = loginResponse.value.allowedMethods,
-                                mfaTicket = loginResponse.value.ticket
-                            )
-                        }
-
-                        is LoginResponse.Disabled -> {
-                            prevState.copy(
-                                isLoginError = true,
-                                loginErrorTitle = "Account Disabled",
-                                loginErrorBody = "This account has been disabled."
-                            )
-                        }
-                    }
-                }
-
-                is Either.Error -> {
-                    val (errorTitle, errorBody) = loginResponse.value.split(':')
-                    prevState.copy(
-                        isLoginError = true,
-                        loginErrorTitle = errorTitle,
-                        loginErrorBody = errorBody
-                    )
-                }
+            if (loginResponse) {
+                setLoggedIn(true)
+                prevState
+            } else {
+                prevState.copy(
+                    isLoginError = true,
+                    loginErrorTitle = "Uh oh!",
+                    loginErrorBody = "Unknown login error occurred"
+                )
             }
         }
     }
@@ -181,43 +117,6 @@ class LoginViewModel @Inject constructor(
             prevState.copy(
                 isLoginError = false,
             )
-        }
-    }
-
-    private suspend fun validateUrl(instanceApiUrl: String): Pair<Boolean, String> {
-        return try {
-            RevoltApiModule.setBaseUrl(instanceApiUrl)
-            val res = revoltAccountRepository.queryNode(instanceApiUrl)
-            if (res.isSuccessful && res.body() != null) {
-                websocketUrl = res.body()!!.ws
-                autumnUrl =
-                    res.body()!!.features.get("autumn").get("url").textValue()
-                Pair(
-                    true,
-                    "That looks like a Revolt v${res.body()!!.revolt} instance!"
-                )
-            } else {
-                Pair(false, "Uh oh! Got status code: ${res.message()}")
-            }
-        } catch (e: Exception) {
-            Log.d("QUERY NODE ERROR", e.toString())
-            Pair(false, "Uh oh! Looks like you input an invalid API URL")
-        }
-    }
-
-    private suspend fun testApiUrlSuspend() {
-        _uiState.update { prevState ->
-            val (success, statusMessage) = validateUrl(prevState.instanceApiUrl)
-            prevState.copy(
-                urlValidated = success,
-                urlValidationMessage = statusMessage
-            )
-        }
-    }
-
-    fun testApiUrl() {
-        viewModelScope.launch {
-            testApiUrlSuspend()
         }
     }
 

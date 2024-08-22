@@ -51,14 +51,6 @@ fun UserProfileScreen(
                         fontFeatureSettings = "smcp"
                     )
                 )
-                for (relationship in uiState.relationships) {
-                    UserRow(
-                        modifier = Modifier.padding(vertical = 10.dp),
-                        iconSize = 40.dp,
-                        userProfile = relationship.value,
-                        relationship = relationship.key
-                    )
-                }
             }
         }
     } else {

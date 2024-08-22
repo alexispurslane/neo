@@ -38,7 +38,10 @@ class ServersRepository @Inject constructor(
     init {
         GlobalScope.launch(Dispatchers.IO) {
             accountsRepository.matrixClient?.room?.getAll()?.flattenValues()?.collect { rooms ->
-                _spaces.update { rooms.filter { it.type == CreateEventContent.RoomType.Space }.map { it.roomId to it }.toMap() }
+                _spaces.update {
+                    rooms.filter { it.type == CreateEventContent.RoomType.Space }
+                        .associateBy { it.roomId }
+                }
             }
         }
     }

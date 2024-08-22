@@ -52,7 +52,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.alexispurslane.bloc.R
-import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
+import net.folivo.trixnity.client.store.Room
 
 @Preview
 @Composable
@@ -119,7 +119,7 @@ fun MessageBar(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChannelTopBar(channelInfo: RevoltChannel.TextChannel) {
+fun ChannelTopBar(channelInfo: Room) {
     TopAppBar(
         colors = topAppBarColors(
             containerColor = MaterialTheme.colorScheme.background,
@@ -145,7 +145,7 @@ fun ChannelTopBar(channelInfo: RevoltChannel.TextChannel) {
                     )
                 }
                 Text(
-                    channelInfo.name ?: "",
+                    channelInfo.name?.explicitName ?: "",
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Start,
                     fontSize = 20.sp,

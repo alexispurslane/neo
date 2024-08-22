@@ -9,7 +9,6 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import io.github.alexispurslane.bloc.LoadingScreen
-import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 import io.github.alexispurslane.bloc.ui.composables.misc.MessagesView
 import io.github.alexispurslane.bloc.ui.composables.navigation.ChannelTopBar
 import io.github.alexispurslane.bloc.ui.composables.navigation.MessageBar
@@ -25,37 +24,34 @@ fun ChannelViewScreen(
     if (uiState.channelInfo == null) {
         LoadingScreen()
     } else {
-        if (uiState.channelInfo is RevoltChannel.TextChannel) {
-            val channelInfo = uiState.channelInfo as RevoltChannel.TextChannel
-            Scaffold(
-                topBar = {
-                    ChannelTopBar(channelInfo)
-                },
-                content = {
-                    if (uiState.error != null) {
-                        val error = uiState.error!!.split(':')
-                        ErrorScreen(title = error[0], message = error[1])
-                    } else {
-                        MessagesView(
-                            modifier = Modifier.padding(it),
-                            uiState,
-                            channelInfo,
-                            onProfileClick = { userId ->
-                                navController.navigate("profile/$userId")
-                            }
-                        )
-                    }
-                },
-                bottomBar = {
-                    MessageBar(
-                        channelInfo.name,
-                        uiState.draftMessage,
-                        channelViewModel::updateMessage,
-                        channelViewModel::sendMessage
+        Scaffold(
+            topBar = {
+                ChannelTopBar(uiState.channelInfo!!)
+            },
+            content = {
+                if (uiState.error != null) {
+                    val error = uiState.error!!.split(':')
+                    ErrorScreen(title = error[0], message = error[1])
+                } else {
+                    MessagesView(
+                        modifier = Modifier.padding(it),
+                        uiState,
+                        uiState.channelInfo!!,
+                        onProfileClick = { userId ->
+                            navController.navigate("profile/$userId")
+                        }
                     )
                 }
-            )
-        }
+            },
+            bottomBar = {
+                MessageBar(
+                    uiState.channelInfo?.name?.explicitName ?: "?",
+                    uiState.draftMessage,
+                    channelViewModel::updateMessage,
+                    channelViewModel::sendMessage
+                )
+            }
+        )
     }
     if (uiState.isSendError) {
         ErrorDialog(

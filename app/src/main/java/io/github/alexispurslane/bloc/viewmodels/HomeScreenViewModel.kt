@@ -10,29 +10,28 @@ import io.github.alexispurslane.bloc.data.AccountsRepository
 import io.github.alexispurslane.bloc.data.ChannelsRepository
 import io.github.alexispurslane.bloc.data.ServersRepository
 import io.github.alexispurslane.bloc.data.UserSession
-import io.github.alexispurslane.bloc.data.local.RevoltAutumnModule
-import io.github.alexispurslane.bloc.data.network.RevoltApiModule
-import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
-import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
-import io.github.alexispurslane.bloc.data.network.models.RevoltServer
-import io.github.alexispurslane.bloc.data.network.models.RevoltUser
+import io.github.alexispurslane.bloc.data.models.User
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.folivo.trixnity.client.MatrixClient
+import net.folivo.trixnity.client.store.Room
+import net.folivo.trixnity.core.model.RoomId
+import net.folivo.trixnity.core.model.UserId
 import javax.inject.Inject
 
 data class HomeUiState(
-    val userInfo: RevoltUser? = null,
-    val servers: Map<String, RevoltServer> = emptyMap(),
-    val channels: Map<String, RevoltChannel> = emptyMap(),
-    val autumnUrl: String? = null,
+    val userInfo: User? = null,
     val lastServer: String? = null,
     val lastChannel: String? = null,
+    val servers: Map<RoomId, Room> = emptyMap(),
+    val channels: Map<RoomId, Map<RoomId, Room>> = emptyMap(),
     val lastServerChannels: Map<String, String> = emptyMap()
 )
 
@@ -49,12 +48,9 @@ class HomeScreenViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            revoltAccountRepository.userSessionFlow.collect { userSession ->
-                Log.d("USER HOME", userSession.toString())
-                if (userSession.instanceApiUrl != null) {
-                    if (userSession.sessionToken != null) {
-                        initializeSession(userSession)
-                    }
+            revoltAccountRepository.matrixClient?.loginState?.collect { loginState ->
+                if (loginState == MatrixClient.LoginState.LOGGED_IN) {
+                    initializeSession(revoltAccountRepository.userSessionFlow.first())
                 }
             }
         }
@@ -80,48 +76,20 @@ class HomeScreenViewModel @Inject constructor(
         }
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
-    private suspend fun initializeWebSockets(userSession: UserSession) =
-        coroutineScope {
-            if (RevoltWebSocketModule.setWebSocketUrlAndToken(
-                    userSession.websocketsUrl!!,
-                    userSession.sessionToken!!
-                )
-            ) {
-                // Initialize service (it's lazily created)
-                RevoltWebSocketModule.service()
-            }
-        }
-
     private suspend fun initializeSession(userSession: UserSession) {
-        RevoltAutumnModule.setUrl(userSession.autumnUrl!!)
-        RevoltApiModule.setBaseUrl(userSession.instanceApiUrl!!)
-        when (val userInfo =
-            revoltAccountRepository.fetchUserInformation()) {
-            is Either.Success -> {
-                _uiState.update {
-                    val lastServer = userSession.preferences["last_server"]
-                    val lastChannel =
-                        lastServer?.let { userSession.preferences[it] }
-                    it.copy(
-                        userInfo = userInfo.value,
-                        autumnUrl = userSession.autumnUrl,
-                        lastServer = it.lastServer ?: lastServer,
-                        lastChannel = it.lastChannel ?: lastChannel,
-                        lastServerChannels = userSession.preferences
-                    )
-                }
-            }
-
-            is Either.Error -> {
-                Log.d(
-                    "USER HOME",
-                    "Failed to get user profile: ${userInfo.value}"
+        revoltAccountRepository.fetchUserInformation(UserId(userSession.userId)).onSuccess { userInfo ->
+            _uiState.update {
+                val lastServer = userSession.preferences["lastServer"]
+                val lastChannel =
+                    lastServer?.let { userSession.preferences[it] }
+                it.copy(
+                    userInfo = userInfo,
+                    lastServer = it.lastServer ?: lastServer,
+                    lastChannel = it.lastChannel ?: lastChannel,
+                    lastServerChannels = userSession.preferences
                 )
             }
         }
-
-        initializeWebSockets(userSession)
     }
 
     fun logout() {
@@ -134,7 +102,7 @@ class HomeScreenViewModel @Inject constructor(
         viewModelScope.launch {
             revoltAccountRepository.savePreferences(
                 mapOf(
-                    "last_server" to currentServerId,
+                    "lastServer" to currentServerId,
                     currentServerId to currentChannelId
                 )
             )

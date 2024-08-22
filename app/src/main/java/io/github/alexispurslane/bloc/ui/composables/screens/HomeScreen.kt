@@ -50,7 +50,7 @@ fun WelcomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "Welcome, ${uiState.userInfo?.userName}!",
+                "Welcome, ${uiState.userInfo?.displayName}!",
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center,
@@ -94,7 +94,7 @@ fun HomeScreen(
                                 serverId,
                                 channelId
                             )
-                            navController.navigate("channel/${channelId}")
+                            navController.navigate("channel/$serverId/$channelId")
                         }
 
                         else -> {}
@@ -102,7 +102,7 @@ fun HomeScreen(
                     reset()
                 },
                 lastServerChannels = uiState.lastServerChannels,
-                userProfileIcon = uiState.userInfo?.avatar
+                userProfileIcon = uiState.userInfo?.avatarUrl
             )
         },
         middle = {
@@ -131,9 +131,9 @@ fun HomeScreen(
                     UserProfileScreen(navController)
                 }
                 composable(
-                    "channel/{channelId}",
+                    "channel/{serverId}/{channelId}",
                     deepLinks = listOf(navDeepLink {
-                        uriPattern = "bloc://channel/{channelId}"
+                        uriPattern = "bloc://channel/{serverId}/{channelId}"
                     })
                 ) {
                     // channelId argument automatically passed to

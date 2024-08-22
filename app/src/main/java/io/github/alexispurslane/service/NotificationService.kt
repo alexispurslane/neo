@@ -33,14 +33,6 @@ import io.github.alexispurslane.bloc.MainActivity
 import io.github.alexispurslane.bloc.R
 import io.github.alexispurslane.bloc.SERVER_CHANNEL_ID
 import io.github.alexispurslane.bloc.SERVICE_CHANNEL_ID
-import io.github.alexispurslane.bloc.data.PreferenceKeys
-import io.github.alexispurslane.bloc.data.network.RevoltApiModule
-import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
-import io.github.alexispurslane.bloc.data.network.models.AutumnFile
-import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
-import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
-import io.github.alexispurslane.bloc.data.network.models.RevoltServer
-import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
 import io.github.alexispurslane.bloc.ui.theme.EngineeringOrange
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -172,6 +164,7 @@ class NotificationService : Service() {
             }
 
         val context = this
+        /*
         listenJob = GlobalScope.launch(Dispatchers.IO) {
             dataStore.data.catch {
                 if (it is IOException)
@@ -230,6 +223,7 @@ class NotificationService : Service() {
                 }
             }
         }
+         */
     }
 
     private fun stopService() {
@@ -260,6 +254,7 @@ class NotificationService : Service() {
         setServiceState(this, ServiceState.STOPPED)
     }
 
+    /*
     private val people: MutableMap<String, Person> = mutableMapOf()
     private suspend fun getChannelName(
         sessionToken: String,
@@ -462,6 +457,7 @@ class NotificationService : Service() {
             null
         }
     }
+     */
 
     private fun createServiceNotification(): Notification {
         val pendingIntent = Intent(this, MainActivity::class.java).let {

@@ -2,8 +2,11 @@ package io.github.alexispurslane.bloc.viewmodels
 
 import android.util.Log
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,29 +16,39 @@ import io.github.alexispurslane.bloc.data.AccountsRepository
 import io.github.alexispurslane.bloc.data.ChannelsRepository
 import io.github.alexispurslane.bloc.data.MessagesRepository
 import io.github.alexispurslane.bloc.data.ServersRepository
-import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
-import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
-import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
-import io.github.alexispurslane.bloc.data.network.models.RevoltMessageSent
-import io.github.alexispurslane.bloc.data.network.models.RevoltServer
-import io.github.alexispurslane.bloc.data.network.models.RevoltServerMember
-import io.github.alexispurslane.bloc.data.network.models.RevoltUser
-import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
+import io.github.alexispurslane.bloc.data.models.User
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.lastOrNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.folivo.trixnity.client.room
+import net.folivo.trixnity.client.room.message.text
+import net.folivo.trixnity.client.store.Room
+import net.folivo.trixnity.client.store.TimelineEvent
+import net.folivo.trixnity.client.store.sender
+import net.folivo.trixnity.clientserverapi.model.users.GetProfile
+import net.folivo.trixnity.core.model.RoomId
+import net.folivo.trixnity.core.model.UserId
 import javax.inject.Inject
 
 data class ServerChannelUiState(
     val channelId: String? = null,
-    val channelInfo: RevoltChannel? = null,
-    val serverInfo: RevoltServer? = null,
-    val users: Map<String, Pair<RevoltUser, RevoltServerMember>> = emptyMap(),
-    val messages: SnapshotStateList<RevoltMessage> = mutableStateListOf(),
+    val channelInfo: Room? = null,
+    val serverInfo: Room? = null,
     val currentUserId: String? = null,
     val error: String? = null,
     val atBeginning: Boolean = false,
@@ -44,8 +57,10 @@ data class ServerChannelUiState(
     val isSendError: Boolean = false,
     val sendErrorTitle: String = "",
     val sendErrorText: String = "",
+    val messages: StateFlow<List<TimelineEvent>>? = null
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ServerChannelViewModel @Inject constructor(
     private val accountsRepository: AccountsRepository,
@@ -57,6 +72,9 @@ class ServerChannelViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ServerChannelUiState())
     val uiState: StateFlow<ServerChannelUiState> = _uiState.asStateFlow()
+
+    val users
+        get() = accountsRepository.users
 
     val messageListState = LazyListState()
 
@@ -78,33 +96,10 @@ class ServerChannelViewModel @Inject constructor(
                 .collectLatest { channelId: String? ->
                     if (channelId != null) {
                         _uiState.update {
-                            initializeChannelData(channelId, it)
+                            initializeChannelData(savedStateHandle["serverId"]!!, channelId, it)
                         }
                     }
                 }
-        }
-
-        viewModelScope.launch {
-            RevoltWebSocketModule.eventFlow.collectLatest { event ->
-                when (event) {
-                    is RevoltWebSocketResponse.Message -> {
-                        if (event.message.channelId == uiState.value.channelId) {
-                            if (messageListState.firstVisibleItemIndex < 24) {
-                                messageListState.scrollToItem(0)
-                                _uiState.update {
-                                    it.copy(newMessages = false)
-                                }
-                            } else {
-                                _uiState.update {
-                                    it.copy(newMessages = true)
-                                }
-                            }
-                        }
-                    }
-
-                    else -> {}
-                }
-            }
         }
     }
 
@@ -117,39 +112,8 @@ class ServerChannelViewModel @Inject constructor(
     fun sendMessage() {
         viewModelScope.launch(Dispatchers.IO) {
             if (uiState.value.channelId != null && uiState.value.draftMessage.isNotBlank()) {
-                val content = uiState.value.draftMessage
-                val message = RevoltMessageSent(
-                    content = content,
-                    attachments = null,
-                    replyIds = null,
-                    embeds = null,
-                    masquerade = null,
-                    interactions = null
-                )
-                val res = messagesRepository.sendMessage(
-                    uiState.value.channelId!!,
-                    message
-                )
-                when (res) {
-                    is Either.Success -> {
-                        Log.d("CHANNEL VIEW", "Sent message: ${res.value}")
-                        _uiState.update {
-                            it.copy(
-                                draftMessage = ""
-                            )
-                        }
-                    }
-
-                    is Either.Error -> {
-                        val split = res.value.split(':')
-                        _uiState.update {
-                            it.copy(
-                                isSendError = true,
-                                sendErrorTitle = split[0],
-                                sendErrorText = split[1]
-                            )
-                        }
-                    }
+                accountsRepository?.matrixClient?.room?.sendMessage(RoomId(uiState.value.channelId!!)) {
+                    text(uiState.value.draftMessage)
                 }
             }
         }
@@ -160,71 +124,44 @@ class ServerChannelViewModel @Inject constructor(
         _uiState.update { it.copy(newMessages = false) }
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
     private suspend fun initializeChannelData(
+        spaceId: String,
         channelId: String,
         prevState: ServerChannelUiState
     ): ServerChannelUiState {
-        val channelInfo = channelsRepository.channels.value[channelId]
-        if (channelInfo !is RevoltChannel.TextChannel) return prevState.copy(
-            error = "Uh oh! Unable to locate channel"
-        )
+        val channelInfo = channelsRepository.channels.value[RoomId(spaceId)]!![RoomId(channelId)]!!
 
-        val serverInfo =
-            serversRepository.spaces.value[channelInfo.serverId]
-        if (serverInfo == null) return prevState.copy(error = "Uh oh! Unable to locate server")
+        val serverInfo: Room =
+            serversRepository.spaces.value[RoomId(spaceId)]
+                ?: return prevState.copy(error = "Uh oh! Unable to locate server")
 
-        val membersInfo =
-            serversRepository.fetchSpaceMembers(serverInfo.serverId)
-        if (membersInfo is Either.Error) return prevState.copy(error = membersInfo.value)
+        val members =
+            serversRepository.fetchSpaceMembers(serverInfo.roomId)?.lastOrNull()
+                ?: return prevState.copy(error = "Uh oh! Cannot fetch member info for channel")
 
-        val members = membersInfo as Either.Success
-        val users = members.value.users.zip(members.value.members)
-            .associate { (user, member) ->
-                Log.d(
-                    "CHANNEL VIEW",
-                    "Found user ${user.userId}, @${user.userName}#${user.discriminator}"
-                )
-                user.userId to (user to member)
+        val users = members
+            .associateBy { user ->
+                user.userId
             }
 
-        val messages = messagesRepository.fetchChannelMessages(
-            channelId,
-            limit = 50
-        )
-        if (messages is Either.Error) return prevState.copy(error = messages.value)
+        val messages = messagesRepository.channelMessages[RoomId(channelId)]
+            ?: messagesRepository.fetchChannelMessages(
+                channelId,
+                limit = 50
+            ) ?: return prevState.copy(error = "Uh oh! Cannot fetch messages for this channel")
+
+        accountsRepository.prefetchUsersForChannel(RoomId(channelId))
 
         return prevState.copy(
             channelId = channelId,
             channelInfo = channelInfo,
             serverInfo = serverInfo,
-            users = users,
-            messages = (messages as Either.Success).value
+            messages = messages.stateIn(viewModelScope)
         )
     }
 
     suspend fun fetchEarlierMessages() {
-        val len = uiState.value.messages.size
-        Log.d(
-            "CHANNEL VIEW",
-            "Fetching earlier messages (current message count: $len)"
-        )
-        val last = uiState.value.messages.lastOrNull()
-        if (uiState.value.channelId != null && last != null) {
-            messagesRepository.fetchChannelMessages(
-                uiState.value.channelId!!,
-                limit = 50,
-                before = last.messageId
-            )
-        }
-        val lenAfter = uiState.value.messages.size
-        if (lenAfter - len < 49) {
-            _uiState.update {
-                it.copy(
-                    atBeginning = true
-                )
-            }
-        }
-        Log.d("CHANNEL VIEW", "post-request message count: $len")
     }
 
     fun onDialogDismiss() {

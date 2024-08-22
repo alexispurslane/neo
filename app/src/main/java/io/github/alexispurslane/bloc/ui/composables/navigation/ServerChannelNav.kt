@@ -40,9 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,20 +48,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import io.github.alexispurslane.bloc.R
-import io.github.alexispurslane.bloc.data.local.RevoltAutumnModule
-import io.github.alexispurslane.bloc.data.network.models.AutumnFile
-import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
-import io.github.alexispurslane.bloc.data.network.models.RevoltServer
-import java.util.Locale
+import net.folivo.trixnity.client.store.Room
+import net.folivo.trixnity.core.model.RoomId
 
 @Composable
 fun ServerChannelNav(
-    servers: Map<String, RevoltServer>,
-    channels: Map<String, RevoltChannel>,
+    servers: Map<RoomId, Room>,
+    channels: Map<RoomId, Map<RoomId, Room>>,
     startingServerId: String = "",
     onNavigate: (String, String, String) -> Unit,
     lastServerChannels: Map<String, String>,
-    userProfileIcon: AutumnFile? = null
+    userProfileIcon: String? = null
 ) {
     var currentServerId by rememberSaveable { mutableStateOf(startingServerId) }
     var currentChannelId by rememberSaveable {
@@ -104,10 +99,7 @@ fun ServerChannelNav(
                                     currentChannelId
                                 )
                             },
-                        model = RevoltAutumnModule.getResourceUrl(
-                            LocalContext.current,
-                            userProfileIcon
-                        ),
+                        model = userProfileIcon,
                         contentDescription = "User Avatar"
                     )
                 } else {
@@ -136,9 +128,9 @@ fun ServerChannelNav(
                 }
                 servers.values.forEachIndexed { _, server ->
                     val shape =
-                        if (server.serverId == currentServerId) MaterialTheme.shapes.large else CircleShape
+                        if (server.roomId.full == currentServerId) MaterialTheme.shapes.large else CircleShape
                     val elevation =
-                        if (server.serverId == currentServerId) ButtonDefaults.elevatedButtonElevation() else ButtonDefaults.buttonElevation()
+                        if (server.roomId.full == currentServerId) ButtonDefaults.elevatedButtonElevation() else ButtonDefaults.buttonElevation()
                     Button(
                         modifier = Modifier
                             .aspectRatio(1.0F)
@@ -146,24 +138,21 @@ fun ServerChannelNav(
                         shape = shape,
                         contentPadding = PaddingValues(0.dp),
                         onClick = {
-                            currentServerId = server.serverId
+                            currentServerId = server.roomId.full
                             currentChannelId =
                                 lastServerChannels[currentServerId] ?: ""
                         },
                         elevation = elevation
                     ) {
-                        if (server.icon != null)
+                        if (server.avatarUrl != null)
                             AsyncImage(
                                 modifier = Modifier.fillMaxSize(),
-                                model = RevoltAutumnModule.getResourceUrl(
-                                    LocalContext.current,
-                                    server.icon!!
-                                ),
+                                model = server.avatarUrl!!,
                                 contentDescription = "Server Icon"
                             )
                         else
                             Text(
-                                server.name.take(2),
+                                server.name?.explicitName?.take(2) ?: "?",
                                 fontWeight = FontWeight.Black,
                                 textAlign = TextAlign.Center
                             )
@@ -197,17 +186,8 @@ fun ServerChannelNav(
                     .background(Color(0x22000000)),
                 contentAlignment = Alignment.BottomStart
             ) {
-                if (servers[currentServerId]?.banner != null)
-                    AsyncImage(
-                        model = RevoltAutumnModule.getResourceUrl(
-                            LocalContext.current,
-                            servers[currentServerId]!!.banner!!
-                        ),
-                        contentDescription = "Server Banner",
-                        contentScale = ContentScale.FillHeight
-                    )
                 Text(
-                    servers[currentServerId]?.name ?: "Direct Messages",
+                    servers[RoomId(currentServerId)]?.name?.explicitName ?: "Direct Messages",
                     modifier = Modifier.padding(start = 10.dp),
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Black,
@@ -220,52 +200,19 @@ fun ServerChannelNav(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
-                servers[currentServerId]?.channelsIds?.forEach { channelId ->
-                    val channel = channels[channelId]
-                    val notInCategory =
-                        servers[currentServerId]?.categories?.find {
-                            it.channelIds.contains(channelId)
-                        } == null
-                    if (channel != null && channel is RevoltChannel.TextChannel && notInCategory) {
-                        ChannelRow(
-                            channel = channel,
-                            selected = currentChannelId == channelId,
-                            onClick = {
-                                currentChannelId = channelId
-                                onNavigate(
-                                    "channel",
-                                    currentServerId,
-                                    channelId
-                                )
-                            }
-                        )
-                    }
-                }
-                servers[currentServerId]?.categories?.forEach { category ->
-                    Text(
-                        category.title.lowercase(Locale.getDefault()),
-                        fontSize = 15.sp,
-                        textAlign = TextAlign.Start,
-                        fontWeight = FontWeight.Black,
-                        color = Color.DarkGray,
-                        style = TextStyle(fontFeatureSettings = "smcp")
-                    )
-                    category.channelIds.forEachIndexed { _, channelId ->
-                        val channel = channels[channelId]
-                        if (channel != null)
-                            ChannelRow(
-                                channel = channel,
-                                selected = channelId == currentChannelId,
-                                onClick = {
-                                    currentChannelId = channelId
-                                    onNavigate(
-                                        "channel",
-                                        currentServerId,
-                                        channelId
-                                    )
-                                }
+                channels[RoomId(currentServerId)]?.forEach { room ->
+                    ChannelRow(
+                        channel = room.value,
+                        selected = currentChannelId == room.key.full,
+                        onClick = {
+                            currentChannelId = room.key.full
+                            onNavigate(
+                                "channel",
+                                currentServerId,
+                                room.key.full
                             )
-                    }
+                        }
+                    )
                 }
             }
         }
@@ -274,7 +221,7 @@ fun ServerChannelNav(
 
 @Composable
 fun ChannelRow(
-    channel: RevoltChannel,
+    channel: Room,
     selected: Boolean,
     onClick: () -> Unit
 ) {
@@ -299,12 +246,9 @@ fun ChannelRow(
                 .padding(horizontal = 5.dp)
                 .size(24.dp)
         ) {
-            if (channel is RevoltChannel.TextChannel) {
-                if (channel.icon != null) {
+                if (channel.avatarUrl != null) {
                     AsyncImage(
-                        model = RevoltAutumnModule.getResourceUrl(
-                            LocalContext.current, channel.icon
-                        ),
+                        model = channel.avatarUrl,
                         contentDescription = "Channel Icon",
                         contentScale = ContentScale.Fit
                     )
@@ -314,19 +258,17 @@ fun ChannelRow(
                         contentDescription = "channel hashtag icon"
                     )
                 }
-            }
         }
         val textColor =
             if (selected) MaterialTheme.colorScheme.onSecondaryContainer else Color.Gray
-        if (channel is RevoltChannel.TextChannel)
-            Text(
-                channel.name,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Start,
-                fontSize = 20.sp,
-                color = textColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+        Text(
+            channel.name?.explicitName ?: "?",
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Start,
+            fontSize = 20.sp,
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
