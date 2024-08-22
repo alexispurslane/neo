@@ -6,9 +6,9 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.MainApplication
-import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
-import io.github.alexispurslane.bloc.data.RevoltChannelsRepository
-import io.github.alexispurslane.bloc.data.RevoltServersRepository
+import io.github.alexispurslane.bloc.data.AccountsRepository
+import io.github.alexispurslane.bloc.data.ChannelsRepository
+import io.github.alexispurslane.bloc.data.ServersRepository
 import io.github.alexispurslane.bloc.data.UserSession
 import io.github.alexispurslane.bloc.data.local.RevoltAutumnModule
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
@@ -38,9 +38,9 @@ data class HomeUiState(
 
 @HiltViewModel
 class HomeScreenViewModel @Inject constructor(
-    private val revoltAccountRepository: RevoltAccountsRepository,
-    private val revoltServersRepository: RevoltServersRepository,
-    private val revoltChannelsRepository: RevoltChannelsRepository,
+    private val revoltAccountRepository: AccountsRepository,
+    private val serversRepository: ServersRepository,
+    private val channelsRepository: ChannelsRepository,
     private val application: MainApplication
 ) : ViewModel() {
 
@@ -60,7 +60,7 @@ class HomeScreenViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            revoltServersRepository.servers.collectLatest { servers ->
+            serversRepository.spaces.collectLatest { servers ->
                 _uiState.update { prevState ->
                     prevState.copy(
                         servers = servers
@@ -70,7 +70,7 @@ class HomeScreenViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            revoltChannelsRepository.channels.collectLatest { channels ->
+            channelsRepository.channels.collectLatest { channels ->
                 _uiState.update { prevState ->
                     prevState.copy(
                         channels = channels

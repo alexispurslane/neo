@@ -1,9 +1,6 @@
 package io.github.alexispurslane.bloc.data
 
 import android.util.Log
-import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
-import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
-import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -17,7 +14,7 @@ import javax.inject.Singleton
 
 @OptIn(DelicateCoroutinesApi::class)
 @Singleton
-class RevoltChannelsRepository @Inject constructor(
+class ChannelsRepository @Inject constructor(
 ) {
     var _channels: MutableStateFlow<Map<String, RevoltChannel>> = MutableStateFlow(
         emptyMap()

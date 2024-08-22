@@ -23,8 +23,8 @@ import javax.inject.Singleton
 
 @OptIn(DelicateCoroutinesApi::class)
 @Singleton
-class RevoltMessagesRepository @Inject constructor(
-    private val revoltAccountsRepository: RevoltAccountsRepository
+class MessagesRepository @Inject constructor(
+    private val accountsRepository: AccountsRepository
 ) {
     var _channelMessages: MutableMap<String, SnapshotStateList<RevoltMessage>> =
         mutableMapOf()
@@ -43,7 +43,7 @@ class RevoltMessagesRepository @Inject constructor(
             ))?.map { userId: String ->
                 async {
                     when (val u =
-                        revoltAccountsRepository.fetchUserInformation(userId)) {
+                        accountsRepository.fetchUserInformation(userId)) {
                         is Either.Success -> {
                             u.value.userId to u.value
                         }
@@ -98,7 +98,7 @@ class RevoltMessagesRepository @Inject constructor(
         channelId: String,
         message: RevoltMessageSent
     ): Either<RevoltMessage, String> {
-        val userSession = revoltAccountsRepository.userSessionFlow.first()
+        val userSession = accountsRepository.userSessionFlow.first()
         if (userSession.sessionToken == null) {
             return Either.Error(
                 "Uh oh! Your user session token is null:You'll have to sign out and sign back in again."
@@ -145,7 +145,7 @@ class RevoltMessagesRepository @Inject constructor(
         includeUsers: Boolean? = null
     ): Either<SnapshotStateList<RevoltMessage>, String> = coroutineScope {
         with(Dispatchers.IO) {
-            val userSession = revoltAccountsRepository.userSessionFlow.first()
+            val userSession = accountsRepository.userSessionFlow.first()
             if (userSession.sessionToken == null) {
                 Either.Error(
                     "Uh oh! Your user session token is null:You'll have to sign out and sign back in again."

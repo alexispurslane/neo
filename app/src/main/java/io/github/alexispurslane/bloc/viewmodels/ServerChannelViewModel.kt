@@ -9,10 +9,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.Either
-import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
-import io.github.alexispurslane.bloc.data.RevoltChannelsRepository
-import io.github.alexispurslane.bloc.data.RevoltMessagesRepository
-import io.github.alexispurslane.bloc.data.RevoltServersRepository
+import io.github.alexispurslane.bloc.data.AccountsRepository
+import io.github.alexispurslane.bloc.data.ChannelsRepository
+import io.github.alexispurslane.bloc.data.MessagesRepository
+import io.github.alexispurslane.bloc.data.ServersRepository
 import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
 import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
 import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
@@ -48,10 +48,10 @@ data class ServerChannelUiState(
 
 @HiltViewModel
 class ServerChannelViewModel @Inject constructor(
-    private val revoltAccountsRepository: RevoltAccountsRepository,
-    private val revoltServersRepository: RevoltServersRepository,
-    private val revoltChannelsRepository: RevoltChannelsRepository,
-    private val revoltMessagesRepository: RevoltMessagesRepository,
+    private val accountsRepository: AccountsRepository,
+    private val serversRepository: ServersRepository,
+    private val channelsRepository: ChannelsRepository,
+    private val messagesRepository: MessagesRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -62,7 +62,7 @@ class ServerChannelViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            revoltAccountsRepository.userSessionFlow.collect {
+            accountsRepository.userSessionFlow.collect {
                 if (it.userId != null) {
                     _uiState.update { prevState ->
                         prevState.copy(
@@ -126,7 +126,7 @@ class ServerChannelViewModel @Inject constructor(
                     masquerade = null,
                     interactions = null
                 )
-                val res = revoltMessagesRepository.sendMessage(
+                val res = messagesRepository.sendMessage(
                     uiState.value.channelId!!,
                     message
                 )
@@ -164,17 +164,17 @@ class ServerChannelViewModel @Inject constructor(
         channelId: String,
         prevState: ServerChannelUiState
     ): ServerChannelUiState {
-        val channelInfo = revoltChannelsRepository.channels.value[channelId]
+        val channelInfo = channelsRepository.channels.value[channelId]
         if (channelInfo !is RevoltChannel.TextChannel) return prevState.copy(
             error = "Uh oh! Unable to locate channel"
         )
 
         val serverInfo =
-            revoltServersRepository.servers.value[channelInfo.serverId]
+            serversRepository.spaces.value[channelInfo.serverId]
         if (serverInfo == null) return prevState.copy(error = "Uh oh! Unable to locate server")
 
         val membersInfo =
-            revoltServersRepository.fetchServerMembers(serverInfo.serverId)
+            serversRepository.fetchSpaceMembers(serverInfo.serverId)
         if (membersInfo is Either.Error) return prevState.copy(error = membersInfo.value)
 
         val members = membersInfo as Either.Success
@@ -187,7 +187,7 @@ class ServerChannelViewModel @Inject constructor(
                 user.userId to (user to member)
             }
 
-        val messages = revoltMessagesRepository.fetchChannelMessages(
+        val messages = messagesRepository.fetchChannelMessages(
             channelId,
             limit = 50
         )
@@ -210,7 +210,7 @@ class ServerChannelViewModel @Inject constructor(
         )
         val last = uiState.value.messages.lastOrNull()
         if (uiState.value.channelId != null && last != null) {
-            revoltMessagesRepository.fetchChannelMessages(
+            messagesRepository.fetchChannelMessages(
                 uiState.value.channelId!!,
                 limit = 50,
                 before = last.messageId

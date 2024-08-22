@@ -23,7 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
+import io.github.alexispurslane.bloc.data.AccountsRepository
 import io.github.alexispurslane.bloc.ui.composables.screens.HomeScreen
 import io.github.alexispurslane.bloc.ui.composables.screens.LoginScreen
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -92,7 +92,7 @@ data class MainUiState(
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val revoltAccountsRepository: RevoltAccountsRepository,
+    private val accountsRepository: AccountsRepository,
 ): ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -108,7 +108,7 @@ class MainViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            revoltAccountsRepository.userSessionFlow.collect { userSession ->
+            accountsRepository.userSessionFlow.collect { userSession ->
                 setLoggedIn(userSession.sessionToken != null)
             }
         }

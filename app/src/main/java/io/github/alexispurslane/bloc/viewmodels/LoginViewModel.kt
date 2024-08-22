@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.Either
-import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
+import io.github.alexispurslane.bloc.data.AccountsRepository
 import io.github.alexispurslane.bloc.data.network.RevoltApiModule
 import io.github.alexispurslane.bloc.data.network.models.LoginRequest
 import io.github.alexispurslane.bloc.data.network.models.LoginResponse
@@ -34,7 +34,7 @@ data class LoginUiState(
 
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val revoltAccountRepository: RevoltAccountsRepository,
+    private val revoltAccountRepository: AccountsRepository,
 ) : ViewModel() {
     private var websocketUrl: String? = null
     private var autumnUrl: String? = null

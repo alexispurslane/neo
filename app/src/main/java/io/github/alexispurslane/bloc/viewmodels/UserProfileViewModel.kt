@@ -6,7 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.Either
-import io.github.alexispurslane.bloc.data.RevoltAccountsRepository
+import io.github.alexispurslane.bloc.data.AccountsRepository
 import io.github.alexispurslane.bloc.data.network.models.RelationshipStatus
 import io.github.alexispurslane.bloc.data.network.models.RevoltUser
 import kotlinx.coroutines.async
@@ -29,7 +29,7 @@ data class UserProfileUiState(
 
 @HiltViewModel
 class UserProfileViewModel @Inject constructor(
-    private val revoltAccountsRepository: RevoltAccountsRepository,
+    private val accountsRepository: AccountsRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(UserProfileUiState())
@@ -49,7 +49,7 @@ class UserProfileViewModel @Inject constructor(
     private suspend fun initializeUserProfile(userId: String) =
         coroutineScope {
             when (val userProfile =
-                revoltAccountsRepository.fetchUserInformation(userId)) {
+                accountsRepository.fetchUserInformation(userId)) {
                 is Either.Success -> {
                     Log.d(
                         "USER PROFILE",
@@ -62,7 +62,7 @@ class UserProfileViewModel @Inject constructor(
                             relationships = userProfile.value.relations?.map {
                                 async {
                                     val userProfile =
-                                        revoltAccountsRepository.fetchUserInformation(
+                                        accountsRepository.fetchUserInformation(
                                             it.userId
                                         )
                                     Log.d(

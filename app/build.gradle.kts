@@ -83,7 +83,7 @@ task<Exec>("appStart") {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.9.0")
+    implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
 
     implementation("androidx.activity:activity-compose:1.7.2")
@@ -96,8 +96,9 @@ dependencies {
 
     implementation("androidx.compose.material3:material3:1.1.1")
 
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-jackson:2.9.0")
+    implementation("net.folivo:trixnity-client:4.6.1")
+    implementation("net.folivo:trixnity-client-repository-realm:4.6.1")
+    implementation("net.folivo:trixnity-client-media-okio-jvm:4.6.1")
 
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
