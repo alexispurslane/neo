@@ -12,12 +12,12 @@ import io.github.alexispurslane.bloc.LoadingScreen
 import io.github.alexispurslane.bloc.ui.composables.misc.MessagesView
 import io.github.alexispurslane.bloc.ui.composables.navigation.ChannelTopBar
 import io.github.alexispurslane.bloc.ui.composables.navigation.MessageBar
-import io.github.alexispurslane.bloc.viewmodels.ServerChannelViewModel
+import io.github.alexispurslane.bloc.viewmodels.ChannelViewModel
 
 @Composable
 fun ChannelViewScreen(
     navController: NavController,
-    channelViewModel: ServerChannelViewModel = hiltViewModel()
+    channelViewModel: ChannelViewModel = hiltViewModel()
 ) {
     val uiState by channelViewModel.uiState.collectAsState()
 

@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,27 +33,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontSynthesis
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.intl.LocaleList
-import androidx.compose.ui.text.style.BaselineShift
-import androidx.compose.ui.text.style.Hyphens
-import androidx.compose.ui.text.style.LineBreak
-import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextDirection
-import androidx.compose.ui.text.style.TextGeometricTransform
-import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,20 +56,15 @@ import com.halilibo.richtext.ui.material3.Material3RichText
 import com.halilibo.richtext.ui.string.RichTextStringStyle
 import io.github.alexispurslane.bloc.data.models.User
 import io.github.alexispurslane.bloc.viewmodels.ServerChannelUiState
-import io.github.alexispurslane.bloc.viewmodels.ServerChannelViewModel
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.lastOrNull
+import io.github.alexispurslane.bloc.viewmodels.ChannelViewModel
 import kotlinx.coroutines.launch
 import net.folivo.trixnity.client.MatrixClient
-import net.folivo.trixnity.client.room.Timeline
 import net.folivo.trixnity.client.store.Room
 import net.folivo.trixnity.client.store.TimelineEvent
 import net.folivo.trixnity.client.store.eventId
 import net.folivo.trixnity.client.store.sender
-import net.folivo.trixnity.clientserverapi.model.users.GetProfile
 import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.UserId
-import net.folivo.trixnity.core.model.events.m.ReactionEventContent
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent
 
 
@@ -94,7 +73,7 @@ fun MessagesView(
     modifier: Modifier = Modifier,
     uiState: ServerChannelUiState,
     channelInfo: Room,
-    channelViewModel: ServerChannelViewModel = hiltViewModel(),
+    channelViewModel: ChannelViewModel = hiltViewModel(),
     onProfileClick: (UserId) -> Unit = { },
     onMessageClick: (EventId) -> Unit = { }
 ) {
@@ -123,7 +102,7 @@ fun MessagesView(
         ) {
             itemsIndexed(
                 messages,
-                key = { _, it -> it.eventId },
+                key = { _, it -> it.eventId.full },
                 contentType = { _, _ -> "Message" }
             ) { index, message ->
                 Message(
@@ -234,9 +213,9 @@ fun Message(
                 modifier = modifier
                     .fillMaxWidth()
                     .background(
-                        if (currentUserId != null && content.mentions?.users!!.contains(
+                        if (currentUserId != null && content.mentions?.users?.contains(
                                 UserId(currentUserId)
-                            )
+                            ) == true
                         )
                             Color(0x55e3e312)
                         else
@@ -249,26 +228,32 @@ fun Message(
                 ),
                 verticalAlignment = Alignment.Top
             ) {
-                if (member != null && (prevMessage == null || prevMessage.sender != message.sender)) {
-                    UserAvatar(
-                        size = 40.dp,
-                        user = member,
-                        client = client,
-                        onClick = { userId ->
-                            onProfileClick(userId)
-                        }
-                    )
+                if (member != null) {
+                    if (prevMessage == null || prevMessage.sender != message.sender) {
+                        UserAvatar(
+                            size = 40.dp,
+                            user = member,
+                            client = client,
+                            onClick = { userId ->
+                                onProfileClick(userId)
+                            }
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.width(40.dp))
+                    }
                     Column(
                         modifier = Modifier.clickable {
                             onMessageClick(message.eventId)
                         }
                     ) {
-                        Text(
-                            member.displayName ?: member.userId.localpart,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Black,
-                            textAlign = TextAlign.Start,
-                        )
+                        if (prevMessage == null || prevMessage.sender != message.sender) {
+                            Text(
+                                member.displayName ?: member.userId.localpart,
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Black,
+                                textAlign = TextAlign.Start,
+                            )
+                        }
 
                         MessageContent(content.body)
 
@@ -350,6 +335,7 @@ fun MessageContent(
         TextStyle(
             color = color,
             fontSize = fontSize,
+            textAlign = TextAlign.Justify
         )
     ) {
         Material3RichText(

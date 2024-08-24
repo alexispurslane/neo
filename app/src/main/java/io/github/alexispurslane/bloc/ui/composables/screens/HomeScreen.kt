@@ -37,7 +37,7 @@ fun HomeScreen(
                                 serverId,
                                 channelId
                             )
-                            navController.navigate("channel/$serverId/$channelId")
+                            navController.navigate("channel/$channelId")
                         }
 
                         else -> {}
@@ -53,7 +53,11 @@ fun HomeScreen(
                 composable("loading") {
                     val loadedUserInfo by remember { derivedStateOf { uiState.userInfo != null && homeScreenViewModel.rooms.value.isNotEmpty() } }
                     LaunchedEffect(loadedUserInfo) {
-                        if (loadedUserInfo) {
+                        if (uiState.lastChannel != null) {
+                            navController.navigate(
+                                "channel/${uiState.lastChannel}"
+                            )
+                        } else if (loadedUserInfo) {
                             navController.navigate(
                                 "profile/@me"
                             )
@@ -70,9 +74,9 @@ fun HomeScreen(
                     UserProfileScreen(navController)
                 }
                 composable(
-                    "channel/{serverId}/{channelId}",
+                    "channel/{channelId}",
                     deepLinks = listOf(navDeepLink {
-                        uriPattern = "bloc://channel/{serverId}/{channelId}"
+                        uriPattern = "bloc://channel/{channelId}"
                     })
                 ) {
                     // channelId argument automatically passed to

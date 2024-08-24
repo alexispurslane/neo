@@ -25,6 +25,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.data.AccountsRepository
+import io.github.alexispurslane.bloc.data.RoomsRepository
 import io.github.alexispurslane.bloc.ui.composables.screens.HomeScreen
 import io.github.alexispurslane.bloc.ui.composables.screens.LoginScreen
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -98,6 +99,7 @@ data class MainUiState(
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val accountsRepository: AccountsRepository,
+    private val roomsRepository: RoomsRepository,
 ): ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -107,14 +109,12 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             accountsRepository.matrixClientFlow.filterNotNull().first()
             accountsRepository.matrixClient?.loginState?.collectLatest { loginState ->
-                Log.d("Main Screen", loginState.toString())
-                _uiState.update {
-                    it.copy(
-                        state = when (loginState) {
-                            MatrixClient.LoginState.LOGGED_IN -> MainUiScreenState.LOGGED_IN
-                            else -> MainUiScreenState.LOGGED_OUT
-                        }
-                    )
+                if (loginState == MatrixClient.LoginState.LOGGED_IN) {
+                    _uiState.update {
+                        it.copy(
+                            state = MainUiScreenState.LOGGED_IN
+                        )
+                    }
                 }
             }
         }

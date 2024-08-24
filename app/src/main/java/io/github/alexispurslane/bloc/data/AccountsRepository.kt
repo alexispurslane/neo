@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -208,7 +209,7 @@ class AccountsRepository @Inject constructor(
     }
 
     suspend fun prefetchUsersForChannel(roomId: RoomId) {
-        matrixClient?.user?.getAll(roomId)?.last()?.forEach {
+        matrixClient?.user?.getAll(roomId)?.first()?.forEach {
             fetchUserInformation(it.key)
         }
     }

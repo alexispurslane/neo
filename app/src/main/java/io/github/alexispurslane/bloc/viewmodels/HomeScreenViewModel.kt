@@ -45,24 +45,25 @@ class HomeScreenViewModel @Inject constructor(
             accountsRepository.matrixClientFlow.collectLatest { mc ->
                 mc?.loginState?.collectLatest { loginState ->
                     if (loginState == MatrixClient.LoginState.LOGGED_IN) {
-                        val userSession = accountsRepository.userSessionFlow.value
-                        if (userSession != null) {
-                            Log.d("Home Screen", userSession.toString())
-                            accountsRepository.fetchUserInformation(accountsRepository.userId(userSession.userId, userSession.instanceApiUrl)).onSuccess { userInfo ->
-                                _uiState.update {
-                                    val lastServer = userSession.preferences["lastServer"]
-                                    val lastChannel =
-                                        lastServer?.let { userSession.preferences[it] }
-                                    it.copy(
-                                        client = mc,
-                                        userInfo = userInfo,
-                                        lastServer = it.lastServer ?: lastServer,
-                                        lastChannel = it.lastChannel ?: lastChannel,
-                                        lastServerChannels = userSession.preferences,
-                                    )
+                        accountsRepository.userSessionFlow.collectLatest { userSession ->
+                            if (userSession != null) {
+                                Log.d("Home Screen", userSession.toString())
+                                accountsRepository.fetchUserInformation(accountsRepository.userId(userSession.userId, userSession.instanceApiUrl)).onSuccess { userInfo ->
+                                    _uiState.update {
+                                        val lastServer = userSession.preferences["lastServer"]
+                                        val lastChannel =
+                                            lastServer?.let { userSession.preferences[it] }
+                                        it.copy(
+                                            client = mc,
+                                            userInfo = userInfo,
+                                            lastServer = it.lastServer ?: lastServer,
+                                            lastChannel = it.lastChannel ?: lastChannel,
+                                            lastServerChannels = userSession.preferences,
+                                        )
+                                    }
+                                }.onFailure {
+                                    Log.e("Home Screen", it.stackTraceToString())
                                 }
-                            }.onFailure {
-                                Log.e("Home Screen", it.stackTraceToString())
                             }
                         }
                     }

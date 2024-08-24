@@ -36,21 +36,24 @@
 -keepclasseswithmembers class * {
     @retrofit2.http.* <methods>;
 }
--keep,allowobfuscation,allowshrinking class retrofit2.Response
--keep,allowobfuscation,allowshrinking class io.github.alexispurslane.bloc.data.SinglePolyUnwrappedDeserializer { *; }
--keep,allowobfuscation,allowshrinking class io.github.alexispurslane.bloc.data.SinglePolyUnwrappedDeserializer$* { *; }
-
 -keep class kotlin.Metadata { *; }
 -keep class kotlin.reflect.** { *; }
--keep class io.github.alexispurslane.bloc.data.network.models.** { *; }
--keep class io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketRequest$* { *; }
--keep class io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse$* { *; }
-
--keepclassmembers class * {
-    @com.fasterxml.jackson.* *;
-}
-
--dontwarn com.fasterxml.jackson.databind.**
 
 -keep class * implements java.io.Serializable
 -keep interface com.fasterxml.jackson.**
+
+-dontwarn java.awt.Component
+-dontwarn java.awt.GraphicsEnvironment
+-dontwarn java.awt.HeadlessException
+-dontwarn java.awt.Window
+-dontwarn java.beans.BeanInfo
+-dontwarn java.beans.IntrospectionException
+-dontwarn java.beans.Introspector
+-dontwarn java.beans.PropertyDescriptor
+-dontwarn java.lang.management.ManagementFactory
+-dontwarn java.lang.management.RuntimeMXBean
+-dontwarn org.slf4j.impl.StaticLoggerBinder
+-dontwarn org.slf4j.impl.StaticMDCBinder
+-dontwarn org.slf4j.impl.StaticMarkerBinder
+-dontwarn org.slf4j.spi.CallerBoundaryAware
+-dontwarn org.slf4j.spi.LoggingEventBuilder

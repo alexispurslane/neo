@@ -1,5 +1,6 @@
 package io.github.alexispurslane.bloc.viewmodels
 
+import android.util.Log
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -7,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.data.AccountsRepository
 import io.github.alexispurslane.bloc.data.MessagesRepository
-import io.github.alexispurslane.bloc.data.RoomTree
 import io.github.alexispurslane.bloc.data.RoomsRepository
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.lastOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -31,7 +32,6 @@ import javax.inject.Inject
 data class ServerChannelUiState(
     val channelId: String? = null,
     val channelInfo: Room? = null,
-    val serverInfo: Room? = null,
     val currentUserId: String? = null,
     val client: MatrixClient? = null,
     val error: String? = null,
@@ -46,7 +46,7 @@ data class ServerChannelUiState(
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
-class ServerChannelViewModel @Inject constructor(
+class ChannelViewModel @Inject constructor(
     private val accountsRepository: AccountsRepository,
     private val roomsRepository: RoomsRepository,
     private val messagesRepository: MessagesRepository,
@@ -78,8 +78,9 @@ class ServerChannelViewModel @Inject constructor(
             savedStateHandle.getStateFlow("channelId", null)
                 .collectLatest { channelId: String? ->
                     if (channelId != null) {
+                        Log.d("Channel View", "channel visited: $channelId")
                         _uiState.update {
-                            initializeChannelData(savedStateHandle["serverId"]!!, channelId, it)
+                            initializeChannelData(channelId, it)
                         }
                     }
                 }
@@ -119,26 +120,13 @@ class ServerChannelViewModel @Inject constructor(
 
     @OptIn(DelicateCoroutinesApi::class)
     private suspend fun initializeChannelData(
-        spaceId: String,
         channelId: String,
         prevState: ServerChannelUiState
     ): ServerChannelUiState {
-        val serverInfo = roomsRepository.rooms.value[RoomId(spaceId)] as? RoomTree.Space?
-        val channelInfo: RoomTree.Channel = if (spaceId == "@me") {
-            roomsRepository.rooms.value[RoomId(channelId)] as? RoomTree.Channel?
-        } else {
-            serverInfo!!.children[RoomId(channelId)] as? RoomTree.Channel?
-        }
+        val channelInfo = roomsRepository.roomDirectory.value[RoomId(channelId)]
             ?: return prevState.copy(error = "Uh oh! Cannot fetch channel info")
 
-        val members =
-            roomsRepository.fetchSpaceMembers(serverInfo?.space?.roomId ?: channelInfo.room.roomId)?.lastOrNull()
-                ?: return prevState.copy(error = "Uh oh! Cannot fetch member info for channel")
-
-        val users = members
-            .associateBy { user ->
-                user.userId
-            }
+        Log.d("Channel View", "got channel info: $channelInfo")
 
         val messages = messagesRepository.channelMessages[RoomId(channelId)]
             ?: messagesRepository.fetchChannelMessages(
@@ -146,12 +134,13 @@ class ServerChannelViewModel @Inject constructor(
                 limit = 50
             ) ?: return prevState.copy(error = "Uh oh! Cannot fetch messages for this channel")
 
+        Log.d("Channel View", "got channel messages: ${messages.first().size}")
+
         accountsRepository.prefetchUsersForChannel(RoomId(channelId))
 
         return prevState.copy(
             channelId = channelId,
-            channelInfo = channelInfo.room,
-            serverInfo = serverInfo?.space,
+            channelInfo = channelInfo,
             messages = messages.stateIn(viewModelScope)
         )
     }

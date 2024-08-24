@@ -8,6 +8,8 @@ import io.ktor.resources.Resource
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -107,54 +109,44 @@ class RoomsRepository @Inject constructor(
     )
     val rooms: StateFlow<Map<RoomId, RoomTree>> = _rooms.asStateFlow()
     // room IDs that have been seen already *in a hierarchy* and so take precedence
-    val seenRoomIds: MutableSet<RoomId> = mutableSetOf()
+    val roomDirectory: MutableStateFlow<Map<RoomId, Room>> = MutableStateFlow(mapOf())
+    var seenRooms: MutableSet<RoomId> = mutableSetOf()
 
     init {
         GlobalScope.launch(Dispatchers.IO) {
             accountsRepository.matrixClientFlow.filterNotNull().first()
             val matrixClient = accountsRepository.matrixClient!!
             matrixClient.room.getAll().flattenValues(throttle = 3.seconds).first().let {
+                roomDirectory.emit(it.associateBy { it.roomId })
                 val roomsMap = mutableMapOf<RoomId, RoomTree>()
-                it.map { room ->
-                    launch(Dispatchers.IO) {
+                it.forEach { room ->
+                    if (!seenRooms.contains(room.roomId)) {
                         buildHierarchy(matrixClient, room, roomsMap)?.let {
                             roomsMap[room.roomId] = it
                         }
-                        _rooms.update { roomsMap }
                     }
-                }.joinAll()
+                }
+                _rooms.update { roomsMap }
                 Log.d("Room Repository", "Done building room hierarchy")
             }
         }
     }
 
-    private suspend fun buildHierarchy(matrixClient: MatrixClient, room: Room, roomsMap: MutableMap<RoomId, RoomTree>): RoomTree? {
-        return if (!seenRoomIds.contains(room.roomId)) {
-            val tree = if (room.type == CreateEventContent.RoomType.Space) {
-                val children = matrixClient.room.getChildren(room.roomId).mapNotNull { childId ->
+    private suspend fun buildHierarchy(matrixClient: MatrixClient, room: Room, roomsMap: MutableMap<RoomId, RoomTree>): RoomTree? = coroutineScope {
+        if (room.type == CreateEventContent.RoomType.Space) {
+            val children = matrixClient.room.getChildren(room.roomId).map { childId ->
+                async {
                     (roomsMap.remove(RoomId(childId)) ?: matrixClient.room.getById(RoomId(childId)).first()?.let { childRoom ->
-                        seenRoomIds.add(childRoom.roomId)
+                        Log.d("Room Repository", "${room.name?.explicitName}/${childRoom.name?.explicitName}")
+                        seenRooms.add(childRoom.roomId)
                         buildHierarchy(matrixClient, childRoom, roomsMap)
                     })?.let { RoomId(childId) to it }
-                }.toMap().toMutableMap()
+                }
+            }.awaitAll().filterNotNull().toMap().toMutableMap()
 
-                RoomTree.Space(space = room, children = children)
-            } else {
-                RoomTree.Channel(room)
-            }
-
-            seenRoomIds.add(room.roomId)
-            val parent = matrixClient.room.getParents(room.roomId)
-                .firstOrNull()
-                ?.let { roomsMap[RoomId(it)] }
-            if (parent is RoomTree.Space) {
-                parent.children[room.roomId] = tree
-                null
-            } else {
-                tree
-            }
+            RoomTree.Space(space = room, children = children)
         } else {
-            null
+            RoomTree.Channel(room)
         }
     }
 
