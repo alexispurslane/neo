@@ -20,23 +20,18 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -65,7 +60,6 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -80,7 +74,6 @@ const val URL_REGEX = "^(https?)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/
 
 @Composable
 fun LoginScreen(
-    setLoggedIn: (Boolean) -> Unit,
     loginViewModel: LoginViewModel = hiltViewModel()
 ) {
     val uiState by loginViewModel.uiState.collectAsState()
@@ -95,7 +88,7 @@ fun LoginScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            RevoltLogo(
+            Logo(
                 Modifier
                     .align(Alignment.CenterHorizontally))
 
@@ -106,7 +99,7 @@ fun LoginScreen(
                     uiState.urlValidated,
                     uiState.urlValidationMessage,
                     loginViewModel::onInstanceInfoChange,
-                    { loginViewModel.onLogin(setLoggedIn) },
+                    { loginViewModel.onLogin() },
                 )
             }
         }
@@ -162,101 +155,20 @@ fun ErrorDialog(
 }
 
 @Composable
-fun RevoltLogo(modifier: Modifier) {
-    val revoltLogo = ImageVector.vectorResource(id = R.drawable.revolt_logo)
-    val painter = rememberVectorPainter(image = revoltLogo)
+fun Logo(modifier: Modifier) {
+    /*
+    val logo = ImageVector.vectorResource(id = R.drawable.bloc_logo)
+    val painter = rememberVectorPainter(image = logo)
 
     Image(modifier = modifier
         .aspectRatio(painter.intrinsicSize.width / painter.intrinsicSize.height)
         .fillMaxWidth(),
         painter = painter,
-        contentDescription = "Revolt Logo",
+        contentDescription = "Bloc Logo",
         contentScale = ContentScale.Fit,
         colorFilter = ColorFilter.tint(EngineeringOrange)
     )
-}
-
-@Composable
-fun MultiFactorLoginForm(
-    mfaAllowedMethods: List<String>,
-    onBack: () -> Unit,
-    onLogin: (String, String) -> Unit
-) {
-    var mfaMethod by remember { mutableStateOf(0) }
-    var mfaResponse by remember { mutableStateOf("") }
-
-    Text("Multi-Factor Authentication", fontSize = 30.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, lineHeight = 40.sp)
-
-    TabRow(
-        modifier = Modifier.fillMaxWidth(),
-        selectedTabIndex = mfaMethod,
-        containerColor = MaterialTheme.colorScheme.background
-    ) {
-        mfaAllowedMethods.forEachIndexed { index, mfaAllowedMethod ->
-            Tab(
-                selected = mfaMethod == index,
-                onClick = { mfaMethod = index },
-                text = { Text(mfaAllowedMethod) }
-            )
-        }
-    }
-
-    when (mfaAllowedMethods[mfaMethod]) {
-        "Recovery" -> OutlinedTextField(
-            value = mfaResponse,
-            onValueChange = { mfaResponse = it },
-            singleLine = true,
-            placeholder = { Text("Recovery code...") },
-            leadingIcon = {
-                Icon(imageVector = Icons.Filled.Warning, contentDescription = "Recovery Code")
-            }
-        )
-        "Password" -> OutlinedTextField(
-            value = mfaResponse,
-            onValueChange = { mfaResponse = it },
-            singleLine = true,
-            placeholder = { Text("MFA password...") },
-            leadingIcon = {
-                Icon(imageVector = Icons.Filled.Warning, contentDescription = "MFA Password")
-            }
-        )
-        "Totp" -> OutlinedTextField(
-            value = mfaResponse,
-            onValueChange = { mfaResponse = it },
-            singleLine = true,
-            placeholder = { Text("One-time passcode...") },
-            leadingIcon = {
-                Icon(imageVector = Icons.Filled.Lock, contentDescription = "One-Time Passcode")
-            },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.NumberPassword
-            )
-        )
-        else -> return
-    }
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Button(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            enabled = mfaResponse.isNotBlank(),
-            onClick = { onLogin(mfaAllowedMethods[mfaMethod], mfaResponse) }
-        ) {
-            Text("Log In")
-        }
-
-        OutlinedButton(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            onClick = { onBack() }
-        ) {
-            Text("Back")
-        }
-    }
+     */
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
@@ -270,8 +182,6 @@ fun InstanceUsernamePasswordLoginForm(
     onInstanceInfoChange: (String, String, String) -> Unit,
     onLogin: () -> Unit,
 ) {
-    val isValidUrl = instanceApiUrl.matches(Regex(URL_REGEX))
-
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -316,8 +226,8 @@ fun InstanceUsernamePasswordLoginForm(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            enabled = isValidUrl && instanceUsername.isNotBlank() && instancePassword.isNotBlank(),
-            onClick = { if (isValidUrl && instanceUsername.isNotBlank() && instancePassword.isNotBlank()) onLogin() }
+            enabled = urlValidated && instanceUsername.isNotBlank() && instancePassword.isNotBlank(),
+            onClick = onLogin
         ) {
             Text("Log In")
         }
@@ -333,10 +243,10 @@ fun UrlField(modifier: Modifier, value: String, urlValidated: Boolean, urlValida
         modifier = modifier,
         value = value,
         onValueChange = onValueChange,
-        placeholder = { Text("https://<your-revolt-instance>/api") },
+        placeholder = { Text("https://<your-matrix-instance>/") },
         supportingText = {
             if (value.isBlank()) {
-                Text("The URL to your Revolt instance's API")
+                Text("The URL to your Matrix instance")
             } else if (!isValidUrl) {
                 Text("Please enter a valid URL", color = MaterialTheme.colorScheme.error)
             } else {

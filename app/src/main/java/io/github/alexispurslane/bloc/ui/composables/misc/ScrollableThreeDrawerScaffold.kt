@@ -5,6 +5,7 @@ import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -131,13 +132,17 @@ fun ScrollableThreeDrawerScaffold(
             if (trayVisibilityState == TrayState.RIGHT_OPEN)
                 right(reset)
         }
+        val interactionSource = remember { MutableInteractionSource() }
         Box(
             modifier = Modifier
                 .offset(x = animatedOffset)
                 .shadow(3.dp)
                 .fillMaxHeight()
                 .requiredWidth(configuration.screenWidthDp.dp)
-                .clickable {
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null
+                ) {
                     middleOffset = 0.dp
                 }
                 .clip(if (trayVisibilityState != TrayState.DEFAULT) MaterialTheme.shapes.small else RectangleShape)

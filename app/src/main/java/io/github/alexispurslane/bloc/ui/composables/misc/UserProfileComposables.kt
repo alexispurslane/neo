@@ -1,5 +1,6 @@
 package io.github.alexispurslane.bloc.ui.composables.misc
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,8 +35,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import io.github.alexispurslane.bloc.data.models.User
+import net.folivo.trixnity.client.MatrixClient
 import net.folivo.trixnity.clientserverapi.model.users.GetAvatarUrl
 import net.folivo.trixnity.clientserverapi.model.users.GetProfile
 import net.folivo.trixnity.core.model.UserId
@@ -46,6 +47,7 @@ import net.folivo.trixnity.core.model.events.m.Presence
 fun UserCard(
     modifier: Modifier = Modifier,
     userProfile: User,
+    client: MatrixClient?
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -53,7 +55,8 @@ fun UserCard(
         Box {
             UserRow(
                 modifier = Modifier.padding(30.dp),
-                userProfile = userProfile
+                userProfile = userProfile,
+                client = client
             )
         }
     }
@@ -64,6 +67,7 @@ fun UserRow(
     modifier: Modifier = Modifier,
     iconSize: Dp = 64.dp,
     userProfile: User,
+    client: MatrixClient?
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -73,19 +77,20 @@ fun UserRow(
         if (userProfile.avatarUrl != null) {
             UserAvatar(
                 size = iconSize,
-                user = userProfile
+                user = userProfile,
+                client = client
             )
         }
         Column {
             if (userProfile.displayName != null) {
                 Text(
-                    "${userProfile.displayName}",
+                    userProfile.displayName,
                     fontSize = (iconSize.value / 2 - 4).sp,
                     fontWeight = FontWeight.Black,
                     textAlign = TextAlign.Start
                 )
                 Text(
-                    "@${userProfile.userId.full}",
+                    userProfile.userId.full,
                     fontSize = (iconSize.value / 4 - 4).sp,
                     fontWeight = FontWeight.Black,
                     textAlign = TextAlign.Start,
@@ -93,10 +98,17 @@ fun UserRow(
                 )
             } else {
                 Text(
-                    "@${userProfile.userId.full}",
+                    "@${userProfile.userId.localpart}",
                     fontSize = (iconSize.value / 2 - 4).sp,
                     fontWeight = FontWeight.Black,
                     textAlign = TextAlign.Start
+                )
+                Text(
+                    userProfile.userId.domain,
+                    fontSize = (iconSize.value / 4 - 4).sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Start,
+                    color = Color.LightGray
                 )
             }
         }
@@ -108,19 +120,19 @@ fun UserAvatar(
     modifier: Modifier = Modifier,
     size: Dp,
     user: User,
+    client: MatrixClient?,
     onClick: (UserId) -> Unit = {}
 ) {
     Box {
-        if (user.avatarUrl != null) {
-            AsyncImage(
+        if (user.avatarUrl != null && client != null) {
+            MatrixImage(
                 modifier = modifier
                     .size(size)
                     .aspectRatio(1f)
                     .clip(CircleShape)
                     .clickable { onClick(user.userId) },
-                model = user.avatarUrl,
-                contentDescription = "User Avatar",
-                contentScale = ContentScale.Crop
+                mxcUri = user.avatarUrl,
+                client = client
             )
         } else {
             Box(

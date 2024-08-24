@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import io.github.alexispurslane.bloc.viewmodels.SettingsViewModel
+import io.github.alexispurslane.bloc.data.AccountsRepository
 
 private val DarkColorScheme = darkColorScheme(
     primary = EngineeringOrange,
@@ -40,17 +40,11 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun BlocTheme(
-    settingsViewModel: SettingsViewModel = hiltViewModel(),
     content: @Composable () -> Unit,
 ) {
-    val settingsState by settingsViewModel.uiState.collectAsState()
-
     val systemTheme = isSystemInDarkTheme()
-    LaunchedEffect(systemTheme) {
-        settingsViewModel.toggleDarkTheme(systemTheme)
-    }
 
-    val colorScheme = if (settingsState.darkTheme) {
+    val colorScheme = if (systemTheme) {
         DarkColorScheme
     } else {
         LightColorScheme
@@ -64,11 +58,11 @@ fun BlocTheme(
             WindowCompat.getInsetsController(
                 window,
                 view
-            ).isAppearanceLightStatusBars = !settingsState.darkTheme
+            ).isAppearanceLightStatusBars = !systemTheme
             WindowCompat.getInsetsController(
                 window,
                 view
-            ).isAppearanceLightNavigationBars = !settingsState.darkTheme
+            ).isAppearanceLightNavigationBars = !systemTheme
         }
     }
 

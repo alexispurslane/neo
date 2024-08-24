@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.Either
 import io.github.alexispurslane.bloc.data.AccountsRepository
+import io.github.alexispurslane.bloc.ui.composables.screens.URL_REGEX
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -33,21 +35,24 @@ data class LoginUiState(
 class LoginViewModel @Inject constructor(
     private val revoltAccountRepository: AccountsRepository,
 ) : ViewModel() {
-    private var websocketUrl: String? = null
-    private var autumnUrl: String? = null
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            val userSession = revoltAccountRepository.userSessionFlow.first()
-            _uiState.update { prevState ->
-                prevState.copy(
-                    instanceApiUrl = if (prevState.instanceApiUrl.isEmpty()) userSession.instanceApiUrl
-                        ?: "" else prevState.instanceApiUrl,
-                    instanceUserName = if (prevState.instanceUserName.isEmpty()) userSession.userId
-                        ?: "" else prevState.instanceUserName,
-                )
+            revoltAccountRepository.userSessionFlow.collectLatest {
+                if (it != null) {
+                    _uiState.update { prevState ->
+                        prevState.copy(
+                            instanceApiUrl = prevState.instanceApiUrl.ifEmpty {
+                                it.instanceApiUrl
+                            },
+                            instanceUserName = prevState.instanceUserName.ifEmpty {
+                                it.userId
+                            },
+                        )
+                    }
+                }
             }
         }
     }
@@ -57,57 +62,32 @@ class LoginViewModel @Inject constructor(
             prevState.copy(
                 instanceApiUrl = apiUrl,
                 instanceUserName = email,
-                instancePassword = pass
+                instancePassword = pass,
+                urlValidated = apiUrl.matches(Regex(URL_REGEX))
+
             )
         }
     }
 
-    fun onMultiFactorLoginConfirm(
-        mfaMethod: String,
-        mfaResponse: String,
-        setLoggedIn: (Boolean) -> Unit
-    ) {
+    fun onLogin() {
         viewModelScope.launch {
-            val loginResponse = revoltAccountRepository.login(
-                uiState.value.instanceApiUrl,
-                uiState.value.instanceUserName
-            )
-
-            handleLoginResponse(loginResponse, setLoggedIn)
-        }
-    }
-
-    fun onLogin(setLoggedIn: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            val urlValidated = if (uiState.value.urlValidated) {
-                true
-            } else {
-                uiState.value.urlValidated
-            }
-            if (urlValidated) {
-                val loginResponse = revoltAccountRepository.login(
+            if (uiState.value.urlValidated) {
+                revoltAccountRepository.login(
                     uiState.value.instanceApiUrl,
                     uiState.value.instanceUserName,
-                )
-                handleLoginResponse(loginResponse, setLoggedIn)
-            }
-        }
-    }
-
-    private fun handleLoginResponse(
-        loginResponse: Boolean,
-        setLoggedIn: (Boolean) -> Unit
-    ) {
-        _uiState.update { prevState ->
-            if (loginResponse) {
-                setLoggedIn(true)
-                prevState
+                    uiState.value.instancePassword
+                ).onFailure {
+                    _uiState.update { prevState ->
+                        Log.e("Login", it.stackTraceToString())
+                        prevState.copy(
+                            isLoginError = true,
+                            loginErrorTitle = "Uh oh!",
+                            loginErrorBody = it.message ?: "An unknown error has occurred"
+                        )
+                    }
+                }
             } else {
-                prevState.copy(
-                    isLoginError = true,
-                    loginErrorTitle = "Uh oh!",
-                    loginErrorBody = "Unknown login error occurred"
-                )
+                Log.w("Login ViewModel", "URL invalid")
             }
         }
     }

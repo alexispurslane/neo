@@ -1,13 +1,19 @@
 package io.github.alexispurslane.bloc.viewmodels
 
+import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.alexispurslane.bloc.Either
+import io.github.alexispurslane.bloc.MainApplication
 import io.github.alexispurslane.bloc.data.AccountsRepository
 import io.github.alexispurslane.bloc.data.models.User
+import io.github.alexispurslane.service.Actions
+import io.github.alexispurslane.service.NotificationService
+import io.github.alexispurslane.service.ServiceState
+import io.github.alexispurslane.service.getServiceState
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -17,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.folivo.trixnity.client.MatrixClient
 import net.folivo.trixnity.client.user
 import net.folivo.trixnity.core.model.UserId
 import javax.inject.Inject
@@ -24,38 +31,90 @@ import javax.inject.Inject
 data class UserProfileUiState(
     val editing: Boolean = false,
     val currentUserId: String? = null,
-    val userProfile: User? = null
+    val userProfile: User? = null,
+    val serviceOn: Boolean = false,
+    val isMyProfile: Boolean = false,
+    val client: MatrixClient? = null
 )
 
 @HiltViewModel
 class UserProfileViewModel @Inject constructor(
     private val accountsRepository: AccountsRepository,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val application: MainApplication,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(UserProfileUiState())
     val uiState: StateFlow<UserProfileUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            savedStateHandle.getStateFlow("userId", null)
-                .collectLatest { userId: String? ->
-                    if (userId != null) {
-                        initializeUserProfile(userId)
+            accountsRepository.matrixClientFlow.collectLatest { matrixClient ->
+                _uiState.update {
+                    it.copy(
+                        client = matrixClient
+                    )
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            savedStateHandle.getStateFlow("userId", "@me").collectLatest { userId ->
+                accountsRepository.matrixClientFlow.collectLatest { matrixClient ->
+                    accountsRepository.userSessionFlow.collectLatest { userSession ->
+                        if (userSession != null) {
+                            initializeUserProfile(
+                                userId == "@me",
+                                if (userId == "@me") accountsRepository.userId(userSession.userId, userSession.instanceApiUrl) else UserId(userId)
+                            )
+                        }
                     }
                 }
+            }
+        }
+
+
+        updateServiceState()
+    }
+
+    fun updateServiceState() {
+        _uiState.update {
+            it.copy(serviceOn = getServiceState(application.applicationContext) == ServiceState.STARTED)
         }
     }
 
-    private suspend fun initializeUserProfile(userId: String) =
+    fun toggleNotificationsService(value: Boolean) {
+        if (!value && getServiceState(application.applicationContext) == ServiceState.STOPPED) return
+        Intent(
+            application.applicationContext,
+            NotificationService::class.java
+        ).apply {
+            action = if (value) Actions.START.name else Actions.STOP.name
+            application.startForegroundService(this)
+        }
+        _uiState.update {
+            it.copy(serviceOn = value)
+        }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            accountsRepository.logout()
+        }
+    }
+
+    private suspend fun initializeUserProfile(isOwnProfile: Boolean, userId: UserId) =
         coroutineScope {
-            val userProfile = accountsRepository.fetchUserInformation(UserId(userId)).onSuccess {
+            accountsRepository.fetchUserInformation(userId).onSuccess { userProfile ->
                 Log.d(
                     "USER PROFILE",
-                    "${userId} display name: ${it.displayName}"
+                    "${userId} display name: ${userProfile.displayName}, is own profile: $isOwnProfile"
                 )
+                Log.d("User Profile", userProfile.avatarUrl.toString())
                 _uiState.update {
                     it.copy(
-                        currentUserId = userId,
+                        isMyProfile = isOwnProfile,
+                        currentUserId = userId.full,
+                        userProfile = userProfile
                     )
                 }
             }.onFailure {

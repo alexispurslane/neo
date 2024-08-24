@@ -1,5 +1,6 @@
 package io.github.alexispurslane.bloc
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,8 +30,12 @@ import io.github.alexispurslane.bloc.ui.composables.screens.LoginScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import net.folivo.trixnity.client.MatrixClient
 import javax.inject.Inject
 
 @Composable
@@ -41,9 +46,9 @@ fun MainScreen(
 
     when (mainState.state) {
         MainUiScreenState.LOADING -> LoadingScreen()
-        MainUiScreenState.LOGGED_OUT -> LoginScreen(setLoggedIn = mainViewModel::setLoggedIn)
+        MainUiScreenState.LOGGED_OUT -> LoginScreen()
         MainUiScreenState.LOGGED_IN ->
-            HomeScreen(setLoggedIn = mainViewModel::setLoggedIn)
+            HomeScreen()
     }
 }
 
@@ -87,7 +92,7 @@ enum class MainUiScreenState {
 }
 
 data class MainUiState(
-    val state: MainUiScreenState = MainUiScreenState.LOADING
+    val state: MainUiScreenState = MainUiScreenState.LOGGED_OUT
 )
 
 @HiltViewModel
@@ -98,18 +103,19 @@ class MainViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
-    fun setLoggedIn(b: Boolean) {
-        _uiState.update {
-            it.copy(
-                state = if (b) MainUiScreenState.LOGGED_IN else MainUiScreenState.LOGGED_OUT
-            )
-        }
-    }
-
     init {
         viewModelScope.launch {
-            accountsRepository.userSessionFlow.collect { userSession ->
-                setLoggedIn(true)
+            accountsRepository.matrixClientFlow.filterNotNull().first()
+            accountsRepository.matrixClient?.loginState?.collectLatest { loginState ->
+                Log.d("Main Screen", loginState.toString())
+                _uiState.update {
+                    it.copy(
+                        state = when (loginState) {
+                            MatrixClient.LoginState.LOGGED_IN -> MainUiScreenState.LOGGED_IN
+                            else -> MainUiScreenState.LOGGED_OUT
+                        }
+                    )
+                }
             }
         }
     }

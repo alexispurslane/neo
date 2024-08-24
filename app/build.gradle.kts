@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
 }
@@ -101,10 +102,10 @@ dependencies {
     implementation("net.folivo:trixnity-client:4.6.1")
     implementation("net.folivo:trixnity-client-repository-realm:4.6.1")
     implementation("net.folivo:trixnity-client-media-okio-jvm:4.6.1")
+    implementation("io.ktor:ktor-client-android:2.3.12")
+    implementation("io.ktor:ktor-server-resources:2.3.12")
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-
-
 
     ksp("com.google.dagger:dagger-compiler:2.48")// Dagger compiler
     ksp("com.google.dagger:hilt-compiler:2.48")  // Hilt compiler    ksp("com.google.dagger:hilt-android-compiler:2.44")
@@ -120,9 +121,6 @@ dependencies {
     implementation("androidx.work:work-runtime:2.9.1")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("androidx.work:work-gcm:2.9.1")
-
-    implementation("io.coil-kt:coil:2.7.0")
-    implementation("io.coil-kt:coil-compose:2.7.0")
 
     implementation("androidx.work:work-multiprocess:2.9.1")
 

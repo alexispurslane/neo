@@ -60,7 +60,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import com.halilibo.richtext.markdown.Markdown
 import com.halilibo.richtext.ui.BlockQuoteGutter
 import com.halilibo.richtext.ui.CodeBlockStyle
@@ -77,6 +76,7 @@ import io.github.alexispurslane.bloc.viewmodels.ServerChannelViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.lastOrNull
 import kotlinx.coroutines.launch
+import net.folivo.trixnity.client.MatrixClient
 import net.folivo.trixnity.client.room.Timeline
 import net.folivo.trixnity.client.store.Room
 import net.folivo.trixnity.client.store.TimelineEvent
@@ -132,6 +132,7 @@ fun MessagesView(
                     currentUserId = uiState.currentUserId,
                     message,
                     channelViewModel.users[message.sender],
+                    uiState.client,
                     messages.getOrNull(
                         index + 1
                     ),
@@ -222,6 +223,7 @@ fun Message(
     currentUserId: String?,
     message: TimelineEvent,
     member: User?,
+    client: MatrixClient?,
     prevMessage: TimelineEvent? = null,
     onProfileClick: (UserId) -> Unit = { },
     onMessageClick: (EventId) -> Unit = { }
@@ -248,17 +250,14 @@ fun Message(
                 verticalAlignment = Alignment.Top
             ) {
                 if (member != null && (prevMessage == null || prevMessage.sender != message.sender)) {
-                    if (member.avatarUrl != null) {
-                        UserAvatar(
-                            size = 40.dp,
-                            user = member,
-                            onClick = { userId ->
-                                onProfileClick(userId)
-                            }
-                        )
-                    } else {
-                        Spacer(modifier = Modifier.width(40.dp))
-                    }
+                    UserAvatar(
+                        size = 40.dp,
+                        user = member,
+                        client = client,
+                        onClick = { userId ->
+                            onProfileClick(userId)
+                        }
+                    )
                     Column(
                         modifier = Modifier.clickable {
                             onMessageClick(message.eventId)
@@ -275,7 +274,7 @@ fun Message(
 
                         when (content) {
                             is RoomMessageEventContent.FileBased.Image -> {
-                                if (content.url != null) {
+                                if (content.url != null && client != null) {
                                     var collapseState by remember { mutableStateOf(true) }
                                     if (!collapseState) {
                                         Column(
@@ -288,18 +287,14 @@ fun Message(
                                             ),
                                             horizontalAlignment = Alignment.Start
                                         ) {
-                                            val uriHandler = LocalUriHandler.current
                                             Box(
                                                 modifier = Modifier
                                                     .clip(MaterialTheme.shapes.large)
                                                     .height(200.dp)
-                                                    .clickable {
-                                                        uriHandler.openUri(content.url!!)
-                                                    }
                                             ) {
-                                                AsyncImage(
-                                                    model = content.url,
-                                                    contentDescription = content.body
+                                                MatrixImage(
+                                                    mxcUri = content.url!!,
+                                                    client = client
                                                 )
                                             }
                                         }
