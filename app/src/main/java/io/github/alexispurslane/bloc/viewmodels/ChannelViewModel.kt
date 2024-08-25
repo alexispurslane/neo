@@ -1,11 +1,15 @@
 package io.github.alexispurslane.bloc.viewmodels
 
+import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.core.content.FileProvider.getUriForFile
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.alexispurslane.bloc.data.AccountsRepository
 import io.github.alexispurslane.bloc.data.MessagesRepository
 import io.github.alexispurslane.bloc.data.RoomsRepository
@@ -16,17 +20,20 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.lastOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.folivo.trixnity.client.MatrixClient
+import net.folivo.trixnity.client.media
 import net.folivo.trixnity.client.room
 import net.folivo.trixnity.client.room.message.text
 import net.folivo.trixnity.client.store.Room
 import net.folivo.trixnity.client.store.TimelineEvent
 import net.folivo.trixnity.core.model.RoomId
+import net.folivo.trixnity.utils.toByteArray
+import java.io.File
 import javax.inject.Inject
 
 data class ServerChannelUiState(
@@ -50,7 +57,8 @@ class ChannelViewModel @Inject constructor(
     private val accountsRepository: AccountsRepository,
     private val roomsRepository: RoomsRepository,
     private val messagesRepository: MessagesRepository,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ServerChannelUiState())
@@ -109,8 +117,16 @@ class ChannelViewModel @Inject constructor(
                 accountsRepository?.matrixClient?.room?.sendMessage(RoomId(uiState.value.channelId!!)) {
                     text(uiState.value.draftMessage)
                 }
+                _uiState.update { it.copy(
+                        draftMessage = ""
+                    )
+                }
             }
         }
+    }
+
+    fun onAttachmentClick(uri: String) {
+
     }
 
     suspend fun goToBottom() {
@@ -146,6 +162,25 @@ class ChannelViewModel @Inject constructor(
     }
 
     suspend fun fetchEarlierMessages() {
+        val firstMessage = uiState.value.messages?.value?.last()
+        if (uiState.value.channelId != null && firstMessage != null) {
+            messagesRepository.fetchChannelMessagesBefore(uiState.value.channelId!!, firstMessage)?.combine(uiState.value.messages!!) { oldMessages, newMessages ->
+                Log.d("Channel View", oldMessages.last().toString())
+                Log.d("Channel View", "...")
+                Log.d("Channel View", oldMessages.first().toString())
+                Log.d("Channel View", "+")
+                Log.d("Channel View", newMessages.last().toString())
+                Log.d("Channel View", "...")
+                Log.d("Channel View", newMessages.first().toString())
+                newMessages + oldMessages.drop(1)
+            }?.stateIn(viewModelScope)?.let { messages ->
+                _uiState.update {
+                    it.copy(
+                        messages = messages
+                    )
+                }
+            }
+        }
     }
 
     fun onDialogDismiss() {

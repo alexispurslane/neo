@@ -1,8 +1,13 @@
 package io.github.alexispurslane.bloc.ui.composables.misc
 
+import android.content.Intent
+import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +21,7 @@ import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
@@ -23,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +40,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -42,8 +53,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider.getUriForFile
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.halilibo.richtext.markdown.Markdown
 import com.halilibo.richtext.ui.BlockQuoteGutter
 import com.halilibo.richtext.ui.CodeBlockStyle
@@ -59,13 +70,18 @@ import io.github.alexispurslane.bloc.viewmodels.ServerChannelUiState
 import io.github.alexispurslane.bloc.viewmodels.ChannelViewModel
 import kotlinx.coroutines.launch
 import net.folivo.trixnity.client.MatrixClient
+import net.folivo.trixnity.client.media
 import net.folivo.trixnity.client.store.Room
 import net.folivo.trixnity.client.store.TimelineEvent
 import net.folivo.trixnity.client.store.eventId
+import net.folivo.trixnity.client.store.relatesTo
 import net.folivo.trixnity.client.store.sender
 import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.UserId
+import net.folivo.trixnity.core.model.events.m.RelatesTo
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent
+import net.folivo.trixnity.utils.toByteArray
+import java.io.File
 
 
 @Composable
@@ -77,7 +93,7 @@ fun MessagesView(
     onProfileClick: (UserId) -> Unit = { },
     onMessageClick: (EventId) -> Unit = { }
 ) {
-    val messages by uiState.messages!!.collectAsStateWithLifecycle()
+    val messages by uiState.messages!!.collectAsState()
     if (messages.isEmpty()) {
         BeginningMessage(
             modifier = modifier.fillMaxSize(),
@@ -91,6 +107,11 @@ fun MessagesView(
             if (atTop) {
                 channelViewModel.fetchEarlierMessages()
             }
+        }
+
+        LaunchedEffect(uiState.messages) {
+            if (!channelViewModel.messageListState.isScrollInProgress && channelViewModel.messageListState.firstVisibleItemIndex <= 3)
+                channelViewModel.goToBottom()
         }
 
         LazyColumn(
@@ -116,7 +137,8 @@ fun MessagesView(
                         index + 1
                     ),
                     onProfileClick,
-                    onMessageClick
+                    onMessageClick,
+                    { channelViewModel.onAttachmentClick(it) }
                 )
             }
             if (uiState.atBeginning) {
@@ -196,6 +218,7 @@ fun BeginningMessage(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun Message(
     modifier: Modifier = Modifier,
@@ -205,10 +228,12 @@ fun Message(
     client: MatrixClient?,
     prevMessage: TimelineEvent? = null,
     onProfileClick: (UserId) -> Unit = { },
-    onMessageClick: (EventId) -> Unit = { }
+    onMessageClick: (EventId) -> Unit = { },
+    onAttachmentClick: (String) -> Unit = { }
 ) {
     when (val content = message.content?.getOrNull()) {
         is RoomMessageEventContent -> {
+            val clipboard = LocalClipboardManager.current
             Row(
                 modifier = modifier
                     .fillMaxWidth()
@@ -221,14 +246,18 @@ fun Message(
                         else
                             Color.Transparent
                     )
-                    .padding(horizontal = 15.dp),
+                    .padding(horizontal = 15.dp)
+                    .combinedClickable(
+                        onLongClick = { onMessageClick(message.eventId) },
+                        onClick = { clipboard.setText(AnnotatedString(content.body)) }
+                    ),
                 horizontalArrangement = Arrangement.spacedBy(
                     10.dp,
                     Alignment.Start
                 ),
                 verticalAlignment = Alignment.Top
             ) {
-                if (member != null) {
+                if (member != null && message.relatesTo !is RelatesTo.Replace) {
                     if (prevMessage == null || prevMessage.sender != message.sender) {
                         UserAvatar(
                             size = 40.dp,
@@ -241,11 +270,7 @@ fun Message(
                     } else {
                         Spacer(modifier = Modifier.width(40.dp))
                     }
-                    Column(
-                        modifier = Modifier.clickable {
-                            onMessageClick(message.eventId)
-                        }
-                    ) {
+                    Column {
                         if (prevMessage == null || prevMessage.sender != message.sender) {
                             Text(
                                 member.displayName ?: member.userId.localpart,
@@ -272,16 +297,47 @@ fun Message(
                                             ),
                                             horizontalAlignment = Alignment.Start
                                         ) {
-                                            Box(
+                                            val context = LocalContext.current
+                                            val scope = rememberCoroutineScope()
+                                            MatrixImage(
                                                 modifier = Modifier
                                                     .clip(MaterialTheme.shapes.large)
                                                     .height(200.dp)
-                                            ) {
-                                                MatrixImage(
-                                                    mxcUri = content.url!!,
-                                                    client = client
-                                                )
-                                            }
+                                                    .clickable {
+                                                        onAttachmentClick(content.url!!)
+                                                        scope.launch {
+                                                            client.media
+                                                                .getMedia(content.url!!)
+                                                                .getOrNull()
+                                                                ?.let { bytes ->
+                                                                    val newFile =
+                                                                        File.createTempFile(
+                                                                            "bloc",
+                                                                            "image",
+                                                                            context.getExternalFilesDir(
+                                                                                "attachment_images"
+                                                                            )
+                                                                        )
+                                                                    bytes.toByteArray().asImageBitmap().asAndroidBitmap().compress(Bitmap.CompressFormat.JPEG, 100, newFile.outputStream())
+                                                                    val fileUri = getUriForFile(
+                                                                        context,
+                                                                        "io.github.alexispurslane.bloc.fileprovider",
+                                                                        newFile
+                                                                    )
+                                                                    val intent =
+                                                                        Intent(Intent.ACTION_VIEW)
+                                                                    intent.setDataAndType(
+                                                                        fileUri,
+                                                                        "image/jpeg"
+                                                                    )
+                                                                    intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                                    context.startActivity(intent)
+                                                                }
+                                                        }
+                                                    },
+                                                mxcUri = content.url!!,
+                                                client = client
+                                            )
                                         }
                                     }
                                     TextButton(

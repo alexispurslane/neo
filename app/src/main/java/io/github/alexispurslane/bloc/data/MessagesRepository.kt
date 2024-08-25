@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import net.folivo.trixnity.client.room
 import net.folivo.trixnity.client.room.toFlowList
 import net.folivo.trixnity.client.store.TimelineEvent
+import net.folivo.trixnity.client.store.eventId
 import net.folivo.trixnity.core.model.RoomId
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,6 +34,17 @@ class MessagesRepository @Inject constructor(
             ?.room
             ?.getLastTimelineEvents(RoomId(channelId))
             ?.toFlowList(MutableStateFlow(limit))
+            ?.flatMapLatest {
+                it.flattenFlow()
+            }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun fetchChannelMessagesBefore(channelId: String, lastEvent: TimelineEvent): Flow<List<TimelineEvent>>? {
+        return accountsRepository.matrixClient
+            ?.room
+            ?.getTimelineEvents(RoomId(channelId), startFrom = lastEvent.eventId)
+            ?.toFlowList(MutableStateFlow(50))
             ?.flatMapLatest {
                 it.flattenFlow()
             }

@@ -19,11 +19,21 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Bloc"
         android:name=".MainApplication"
-        tools:targetApi="31">
+        tools:targetApi="35">
+
+        <provider
+            android:name="io.github.alexispurslane.bloc.ui.composables.misc.MatrixImageFileProvider"
+            android:authorities="io.github.alexispurslane.bloc.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.Bloc">
             <intent-filter>
