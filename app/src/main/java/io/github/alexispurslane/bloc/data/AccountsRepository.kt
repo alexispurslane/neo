@@ -119,7 +119,8 @@ class AccountsRepository @Inject constructor(
             identifier = IdentifierType.User(userId),
             repositoriesModule = platformRepositoryModule,
             mediaStore = platformMediaStore,
-            password = password
+            password = password,
+            initialDeviceDisplayName = "Bloc"
         ).getOrElse { return@login Result.failure(it) }
 
         Log.d("Account Repository", "Login succeeded")

@@ -23,7 +23,7 @@
 
         <provider
             android:name="io.github.alexispurslane.bloc.ui.composables.misc.MatrixImageFileProvider"
-            android:authorities="io.github.alexispurslane.bloc.fileprovider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

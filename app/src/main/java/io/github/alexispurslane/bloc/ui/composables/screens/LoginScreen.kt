@@ -5,10 +5,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -81,7 +84,8 @@ fun LoginScreen(
     Box(
         modifier = Modifier
             .padding(horizontal = 50.dp)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .imePadding(),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -156,19 +160,20 @@ fun ErrorDialog(
 
 @Composable
 fun Logo(modifier: Modifier) {
-    /*
-    val logo = ImageVector.vectorResource(id = R.drawable.bloc_logo)
-    val painter = rememberVectorPainter(image = logo)
-
-    Image(modifier = modifier
-        .aspectRatio(painter.intrinsicSize.width / painter.intrinsicSize.height)
-        .fillMaxWidth(),
-        painter = painter,
-        contentDescription = "Bloc Logo",
-        contentScale = ContentScale.Fit,
-        colorFilter = ColorFilter.tint(EngineeringOrange)
-    )
-     */
+    Row(
+        modifier = Modifier.height(100.dp)
+    ) {
+        val logo1 = ImageVector.vectorResource(id = R.drawable.matrix_logo)
+        val painter1 = rememberVectorPainter(image = logo1)
+        Image(modifier = modifier
+            .aspectRatio(painter1.intrinsicSize.width / painter1.intrinsicSize.height)
+            .fillMaxHeight(),
+            painter = painter1,
+            contentDescription = "Matrix Logo",
+            contentScale = ContentScale.Fit,
+            colorFilter = ColorFilter.tint(Color.White)
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)

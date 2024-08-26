@@ -2,6 +2,8 @@ package io.github.alexispurslane.bloc.viewmodels
 
 import android.content.Intent
 import android.util.Log
+import androidx.compose.ui.unit.TextUnit
+import androidx.datastore.preferences.core.preferencesOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -34,7 +36,8 @@ data class UserProfileUiState(
     val userProfile: User? = null,
     val serviceOn: Boolean = false,
     val isMyProfile: Boolean = false,
-    val client: MatrixClient? = null
+    val client: MatrixClient? = null,
+    val preferences: Map<String, String> = mapOf()
 )
 
 @HiltViewModel
@@ -64,7 +67,8 @@ class UserProfileViewModel @Inject constructor(
                         if (userSession != null) {
                             initializeUserProfile(
                                 userId == "@me",
-                                if (userId == "@me") accountsRepository.userId(userSession.userId, userSession.instanceApiUrl) else UserId(userId)
+                                if (userId == "@me") accountsRepository.userId(userSession.userId, userSession.instanceApiUrl) else UserId(userId),
+                                userSession.preferences
                             )
                         }
                     }
@@ -102,19 +106,20 @@ class UserProfileViewModel @Inject constructor(
         }
     }
 
-    private suspend fun initializeUserProfile(isOwnProfile: Boolean, userId: UserId) =
+    private suspend fun initializeUserProfile(isOwnProfile: Boolean, userId: UserId, preferences: Map<String, String>) =
         coroutineScope {
             accountsRepository.fetchUserInformation(userId).onSuccess { userProfile ->
                 Log.d(
                     "USER PROFILE",
                     "${userId} display name: ${userProfile.displayName}, is own profile: $isOwnProfile"
                 )
-                Log.d("User Profile", userProfile.avatarUrl.toString())
+                Log.d("User Profile", "")
                 _uiState.update {
                     it.copy(
                         isMyProfile = isOwnProfile,
                         currentUserId = userId.full,
-                        userProfile = userProfile
+                        userProfile = userProfile,
+                        preferences = preferences
                     )
                 }
             }.onFailure {
@@ -124,4 +129,28 @@ class UserProfileViewModel @Inject constructor(
                 )
             }
         }
+
+    fun fontSizeChange(size: TextUnit) {
+        viewModelScope.launch {
+            accountsRepository.savePreferences(
+                mapOf("fontSize" to size.value.toString())
+            )
+        }
+    }
+
+    fun setMessageTextJustification(it: Boolean) {
+        viewModelScope.launch {
+            accountsRepository.savePreferences(
+                mapOf("justifyText" to it.toString())
+            )
+        }
+    }
+
+    fun setExpandImages(it: Boolean) {
+        viewModelScope.launch {
+            accountsRepository.savePreferences(
+                mapOf("expandImages" to it.toString())
+            )
+        }
+    }
 }

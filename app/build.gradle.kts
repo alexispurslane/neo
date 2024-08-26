@@ -1,3 +1,5 @@
+import com.android.build.api.variant.ResValue
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -70,6 +72,15 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+
+    androidComponents {
+        onVariants { variant ->
+            variant.resValues.put(
+                variant.makeResValueKey("string", "app_id"),
+                ResValue(variant.applicationId.get())
+            )
         }
     }
 }

@@ -1,16 +1,21 @@
 package io.github.alexispurslane.bloc.ui.composables.misc
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,11 +23,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
@@ -41,9 +50,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -65,10 +76,15 @@ import com.halilibo.richtext.ui.RichTextStyle
 import com.halilibo.richtext.ui.TableStyle
 import com.halilibo.richtext.ui.material3.Material3RichText
 import com.halilibo.richtext.ui.string.RichTextStringStyle
+import io.github.alexispurslane.bloc.R
 import io.github.alexispurslane.bloc.data.models.User
 import io.github.alexispurslane.bloc.viewmodels.ServerChannelUiState
 import io.github.alexispurslane.bloc.viewmodels.ChannelViewModel
+import io.realm.kotlin.internal.interop.BuildConfig
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import net.folivo.trixnity.client.MatrixClient
 import net.folivo.trixnity.client.media
 import net.folivo.trixnity.client.store.Room
@@ -78,9 +94,11 @@ import net.folivo.trixnity.client.store.relatesTo
 import net.folivo.trixnity.client.store.sender
 import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.UserId
+import net.folivo.trixnity.core.model.events.UnknownEventContent
 import net.folivo.trixnity.core.model.events.m.RelatesTo
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent
 import net.folivo.trixnity.utils.toByteArray
+import org.intellij.lang.annotations.JdkConstants.HorizontalAlignment
 import java.io.File
 
 
@@ -91,7 +109,6 @@ fun MessagesView(
     channelInfo: Room,
     channelViewModel: ChannelViewModel = hiltViewModel(),
     onProfileClick: (UserId) -> Unit = { },
-    onMessageClick: (EventId) -> Unit = { }
 ) {
     val messages by uiState.messages!!.collectAsState()
     if (messages.isEmpty()) {
@@ -132,13 +149,10 @@ fun MessagesView(
                     currentUserId = uiState.currentUserId,
                     message,
                     channelViewModel.users[message.sender],
-                    uiState.client,
                     messages.getOrNull(
                         index + 1
                     ),
                     onProfileClick,
-                    onMessageClick,
-                    { channelViewModel.onAttachmentClick(it) }
                 )
             }
             if (uiState.atBeginning) {
@@ -218,6 +232,37 @@ fun BeginningMessage(
     }
 }
 
+fun launchActionWithAttachment(
+    scope: CoroutineScope,
+    context: Context,
+    client: MatrixClient,
+    uri: String,
+    action: (Uri) -> Unit
+) {
+    scope.launch {
+        client.media
+            .getMedia(uri)
+            .getOrNull()
+            ?.let { bytes ->
+                val newFile =
+                    File.createTempFile(
+                        "bloc",
+                        "attachment",
+                        context.getExternalFilesDir(
+                            "attachments"
+                        )
+                    )
+                newFile.writeBytes(bytes.toByteArray())
+                val fileUri = getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    newFile
+                )
+                action(fileUri)
+            }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun Message(
@@ -225,122 +270,158 @@ fun Message(
     currentUserId: String?,
     message: TimelineEvent,
     member: User?,
-    client: MatrixClient?,
     prevMessage: TimelineEvent? = null,
     onProfileClick: (UserId) -> Unit = { },
-    onMessageClick: (EventId) -> Unit = { },
-    onAttachmentClick: (String) -> Unit = { }
+    channelViewModel: ChannelViewModel = hiltViewModel()
 ) {
-    when (val content = message.content?.getOrNull()) {
-        is RoomMessageEventContent -> {
-            val clipboard = LocalClipboardManager.current
-            Row(
-                modifier = modifier
-                    .fillMaxWidth()
-                    .background(
-                        if (currentUserId != null && content.mentions?.users?.contains(
-                                UserId(currentUserId)
-                            ) == true
-                        )
-                            Color(0x55e3e312)
-                        else
-                            Color.Transparent
-                    )
-                    .padding(horizontal = 15.dp)
-                    .combinedClickable(
-                        onLongClick = { onMessageClick(message.eventId) },
-                        onClick = { clipboard.setText(AnnotatedString(content.body)) }
-                    ),
-                horizontalArrangement = Arrangement.spacedBy(
-                    10.dp,
-                    Alignment.Start
-                ),
-                verticalAlignment = Alignment.Top
-            ) {
-                if (member != null && message.relatesTo !is RelatesTo.Replace) {
-                    if (prevMessage == null || prevMessage.sender != message.sender) {
-                        UserAvatar(
-                            size = 40.dp,
-                            user = member,
-                            client = client,
-                            onClick = { userId ->
-                                onProfileClick(userId)
-                            }
-                        )
-                    } else {
-                        Spacer(modifier = Modifier.width(40.dp))
+    val channelUiState by channelViewModel.uiState.collectAsState()
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 15.dp),
+        horizontalArrangement = Arrangement.spacedBy(
+            10.dp,
+            Alignment.Start
+        ),
+        verticalAlignment = Alignment.Top
+    ) {
+        if (member != null && message.relatesTo !is RelatesTo.Replace) {
+            val avatarSize = (channelUiState.fontSize.value * 2 + 8)
+            if (prevMessage == null || prevMessage.sender != message.sender) {
+                UserAvatar(
+                    size = avatarSize.dp,
+                    user = member,
+                    client = channelUiState.client,
+                    onClick = { userId ->
+                        onProfileClick(userId)
                     }
-                    Column {
-                        if (prevMessage == null || prevMessage.sender != message.sender) {
-                            Text(
-                                member.displayName ?: member.userId.localpart,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Black,
-                                textAlign = TextAlign.Start,
+                )
+            } else {
+                Spacer(modifier = Modifier.width(avatarSize.dp))
+            }
+            Column {
+                if (prevMessage == null || prevMessage.sender != message.sender) {
+                    Text(
+                        member.displayName ?: member.userId.localpart,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Start,
+                    )
+                }
+                when (val content = message.content?.getOrNull()) {
+                    is UnknownEventContent  -> {
+                        if (content.eventType == "m.sticker") {
+                            if (channelUiState.client != null) {
+                                MatrixImage(
+                                    modifier = Modifier
+                                        .clip(MaterialTheme.shapes.large)
+                                        .size(250.dp),
+                                    client = channelUiState.client!!,
+                                    mxcUri = content.raw["url"]!!.jsonPrimitive.content
+                                )
+                            } else {
+                                MessageContent(content = "Sticker: ${content.raw["body"]!!}")
+                            }
+                        } else {
+                            MessageContent(
+                                "Unknown timeline event: ${message.content.toString()}",
+                                color = Color.LightGray,
+                                fontSize = 16.sp
                             )
                         }
+                    }
+                    is RoomMessageEventContent -> {
+                        val clipboard = LocalClipboardManager.current
 
-                        MessageContent(content.body)
+                        var collapseState by remember { mutableStateOf(!channelUiState.expandImages) }
 
+                        val context = LocalContext.current
+                        val scope = rememberCoroutineScope()
                         when (content) {
-                            is RoomMessageEventContent.FileBased.Image -> {
-                                if (content.url != null && client != null) {
-                                    var collapseState by remember { mutableStateOf(true) }
-                                    if (!collapseState) {
-                                        Column(
+                            is RoomMessageEventContent.TextBased -> {
+                                MessageContent(
+                                    content.body,
+                                    modifier = Modifier
+                                        .combinedClickable(
+                                            onLongClick = { },
+                                            onClick = { clipboard.setText(AnnotatedString(content.body)) }
+                                        )
+                                        .border(
+                                            width = 5.dp,
+                                            color = if (currentUserId != null && content.mentions?.users?.contains(
+                                                    UserId(currentUserId)
+                                                ) == true
+                                            )
+                                                Color.Yellow
+                                            else
+                                                Color.Transparent
+                                        ),
+                                    fontSize = channelUiState.fontSize,
+                                    textAlign = if (channelUiState.justifyText) TextAlign.Justify else TextAlign.Start
+                                )
+                            }
+                            is RoomMessageEventContent.FileBased.File -> {
+                                if (content.url != null && channelUiState.client != null) {
+                                    TextButton(onClick = {
+                                        launchActionWithAttachment(scope, context, channelUiState.client!!, content.url!!) {
+                                            val intent =
+                                                Intent(Intent.ACTION_CREATE_DOCUMENT)
+                                            intent.setDataAndType(
+                                                it,
+                                                content.info?.mimeType
+                                            )
+                                            intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                            context.startActivity(intent)
+                                        }
+                                    }) {
+                                        Box(
                                             modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 5.dp),
-                                            verticalArrangement = Arrangement.spacedBy(
-                                                5.dp,
-                                                Alignment.CenterVertically
-                                            ),
-                                            horizontalAlignment = Alignment.Start
+                                                .padding(horizontal = 5.dp)
+                                                .size(24.dp)
                                         ) {
-                                            val context = LocalContext.current
-                                            val scope = rememberCoroutineScope()
-                                            MatrixImage(
-                                                modifier = Modifier
-                                                    .clip(MaterialTheme.shapes.large)
-                                                    .height(200.dp)
-                                                    .clickable {
-                                                        onAttachmentClick(content.url!!)
-                                                        scope.launch {
-                                                            client.media
-                                                                .getMedia(content.url!!)
-                                                                .getOrNull()
-                                                                ?.let { bytes ->
-                                                                    val newFile =
-                                                                        File.createTempFile(
-                                                                            "bloc",
-                                                                            "image",
-                                                                            context.getExternalFilesDir(
-                                                                                "attachment_images"
-                                                                            )
-                                                                        )
-                                                                    bytes.toByteArray().asImageBitmap().asAndroidBitmap().compress(Bitmap.CompressFormat.JPEG, 100, newFile.outputStream())
-                                                                    val fileUri = getUriForFile(
-                                                                        context,
-                                                                        "io.github.alexispurslane.bloc.fileprovider",
-                                                                        newFile
-                                                                    )
-                                                                    val intent =
-                                                                        Intent(Intent.ACTION_VIEW)
-                                                                    intent.setDataAndType(
-                                                                        fileUri,
-                                                                        "image/jpeg"
-                                                                    )
-                                                                    intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                                                    context.startActivity(intent)
-                                                                }
-                                                        }
-                                                    },
-                                                mxcUri = content.url!!,
-                                                client = client
+                                            Icon(
+                                                imageVector = ImageVector.vectorResource(R.drawable.download),
+                                                contentDescription = "Download file"
                                             )
                                         }
+
+                                        Text(text = content.body)
+                                    }
+                                }
+                            }
+                            is RoomMessageEventContent.FileBased.Image -> {
+                                if (content.url != null && channelUiState.client != null) {
+                                    if (!collapseState) {
+                                        MatrixImage(
+                                            modifier = Modifier
+                                                .padding(vertical = 5.dp)
+                                                .clip(MaterialTheme.shapes.large)
+                                                .height(300.dp)
+                                                .clickable {
+                                                    launchActionWithAttachment(
+                                                        scope,
+                                                        context,
+                                                        channelUiState.client!!,
+                                                        content.url!!
+                                                    ) {
+                                                        val intent =
+                                                            Intent(Intent.ACTION_VIEW)
+                                                        intent.setDataAndType(
+                                                            it,
+                                                            content.info?.mimeType
+                                                        )
+                                                        intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                        context.startActivity(intent)
+                                                    }
+                                                },
+                                            mxcUri = content.url!!,
+                                            client = channelUiState.client!!,
+                                            shouldFill = false
+                                        )
                                     }
                                     TextButton(
+                                        modifier = Modifier.padding(start = 0.dp),
                                         onClick = { collapseState = !collapseState }
                                     ) {
                                         Text(
@@ -351,18 +432,20 @@ fun Message(
                                     }
                                 }
                             }
+
                             else -> {}
                         }
                     }
+
+                    else -> {
+                        MessageContent(
+                            "Unknown timeline event: ${message.content.toString()}",
+                            color = Color.LightGray,
+                            fontSize = 16.sp
+                        )
+                    }
                 }
             }
-        }
-        else -> {
-            MessageContent(
-                "Cannot access message content",
-                color = Color.LightGray,
-                fontSize = 16.sp
-            )
         }
     }
 }
@@ -370,8 +453,10 @@ fun Message(
 @Composable
 fun MessageContent(
     content: String,
+    modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.onBackground,
     fontSize: TextUnit = 18.sp,
+    textAlign: TextAlign = TextAlign.Justify,
     paragraphSpacing: TextUnit? = null,
     headingStyle: HeadingStyle? = null,
     listStyle: ListStyle? = null,
@@ -391,10 +476,11 @@ fun MessageContent(
         TextStyle(
             color = color,
             fontSize = fontSize,
-            textAlign = TextAlign.Justify
+            textAlign = textAlign
         )
     ) {
         Material3RichText(
+            modifier = modifier,
             style = RichTextStyle(
                 paragraphSpacing,
                 headingStyle,

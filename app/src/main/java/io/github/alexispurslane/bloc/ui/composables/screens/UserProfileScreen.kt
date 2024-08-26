@@ -12,16 +12,26 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,8 +47,10 @@ import io.github.alexispurslane.bloc.LoadingScreen
 import io.github.alexispurslane.bloc.ui.composables.misc.UserCard
 import io.github.alexispurslane.bloc.ui.composables.misc.UserRow
 import io.github.alexispurslane.bloc.viewmodels.UserProfileViewModel
+import kotlin.math.exp
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserProfileScreen(
     navController: NavHostController,
@@ -47,7 +59,9 @@ fun UserProfileScreen(
     val uiState by userProfileViewModel.uiState.collectAsState()
 
     if (uiState.userProfile != null) {
-        Column {
+        Column(
+            modifier = Modifier.statusBarsPadding()
+        ) {
             UserCard(userProfile = uiState.userProfile!!, client = uiState.client)
             Column(
                 modifier = Modifier
@@ -72,6 +86,68 @@ fun UserProfileScreen(
                             fontFeatureSettings = "smcp"
                         )
                     )
+
+                    SettingsRow(
+                        title = "Message font size",
+                        comment = "Set a custom font size for message text (UI text is unaffected)"
+                    ) {
+                        var expandedState by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(expanded = expandedState, onExpandedChange = { expandedState = !expandedState }) {
+                            TextField(
+                                modifier = Modifier
+                                    .menuAnchor(),
+                                value = uiState.preferences["fontSize"] ?: "16.0",
+                                onValueChange = {},
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedState) },
+                                readOnly = true,
+                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                            )
+                            ExposedDropdownMenu(expanded = expandedState, onDismissRequest = { expandedState = false }) {
+                                listOf(13.sp, 16.sp, 18.sp).forEach { size ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(text = "${size.value}")
+                                        },
+                                        onClick = {
+                                            userProfileViewModel.fontSizeChange(size)
+                                            expandedState = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    SettingsRow(
+                        title = "Message text justification",
+                        comment = "In case ragged edges bother you"
+                    ) {
+                        Switch(checked = uiState.preferences["justifyText"]?.toBooleanStrictOrNull() ?: true, onCheckedChange = {
+                            userProfileViewModel.setMessageTextJustification(it)
+                        })
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Text(
+                        "behavior",
+                        fontSize = 18.sp,
+                        textAlign = TextAlign.Start,
+                        fontWeight = FontWeight.Black,
+                        color = Color.DarkGray,
+                        style = TextStyle(
+                            fontFeatureSettings = "smcp"
+                        )
+                    )
+
+                    SettingsRow(
+                        title = "Expand image attachments",
+                        comment = "Whether image attachments are expanded or collapsed by default"
+                    ) {
+                        Switch(checked = uiState.preferences["expandImages"]?.toBooleanStrictOrNull() ?: true, onCheckedChange = {
+                            userProfileViewModel.setExpandImages(it)
+                        })
+                    }
 
                     Spacer(modifier = Modifier.height(20.dp))
 
@@ -102,7 +178,7 @@ fun UserProfileScreen(
                     )
                     SettingsRow(
                         title = "Notification service",
-                        comment = "In order to receive notifications without using Google's servers, this service listens for new notifications over WebSockets. This is necessary to receive any notifications. It may use more battery."
+                        comment = "Instead of using Google's servers to read your notifications, Bloc uses a background service."
                     ) {
                         Switch(checked = uiState.serviceOn, onCheckedChange = {
                             userProfileViewModel.toggleNotificationsService(it)
@@ -120,10 +196,12 @@ fun UserProfileScreen(
                                 context.startActivity(launchPowerManagementSettingsIntent)
                             },
                         title = "Protect from doze",
-                        comment = "In order to reliably deliver notifications, this app must be protected from power optimizations. Tap to go to those settings."
+                        comment = "In order to reliably deliver notifications."
                     )
                     OutlinedButton(
-                        modifier = Modifier.height(50.dp).align(alignment = Alignment.CenterHorizontally),
+                        modifier = Modifier
+                            .height(50.dp)
+                            .align(alignment = Alignment.CenterHorizontally),
                         onClick = {
                             userProfileViewModel.logout()
                         },
@@ -162,8 +240,12 @@ fun SettingsRow(
         ) {
             Text(title, fontWeight = FontWeight.Black, fontSize = 18.sp)
             if (comment != null)
-                Text(comment, color = Color.Gray, fontSize = 15.sp)
+                Text(comment, color = Color.Gray, fontSize = 13.sp)
         }
-        content()
+        Box(
+            modifier = Modifier.weight(0.4f).padding(start = 5.dp)
+        ) {
+            content()
+        }
     }
 }

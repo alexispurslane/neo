@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -29,11 +31,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,12 +46,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.alexispurslane.bloc.R
 import io.github.alexispurslane.bloc.data.RoomTree
 import io.github.alexispurslane.bloc.ui.composables.misc.MatrixImage
+import io.github.alexispurslane.bloc.ui.theme.EngineeringOrange
+import io.github.alexispurslane.bloc.viewmodels.HomeScreenViewModel
 import io.ktor.util.reflect.instanceOf
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
 import net.folivo.trixnity.client.MatrixClient
 import net.folivo.trixnity.client.store.Room
 import net.folivo.trixnity.core.model.RoomId
@@ -59,54 +60,47 @@ import java.util.Locale
 
 @Composable
 fun ServerChannelNav(
-    rooms: StateFlow<Map<RoomId, RoomTree>>,
-    client: MatrixClient?,
-    startingServerId: String = "",
     onNavigate: (String, String, String) -> Unit,
-    lastServerChannels: Map<String, String>,
-    userProfileIcon: String? = null,
+    homeScreenViewModel: HomeScreenViewModel = hiltViewModel()
 ) {
-    val rooms by rooms.collectAsState()
-    var currentServer: RoomTree.Space? by rememberSaveable { mutableStateOf(null) }
-    var currentChannel: RoomTree.Channel? by rememberSaveable {
-        mutableStateOf(
-            null
-        )
-    }
+    val uiState by homeScreenViewModel.uiState.collectAsState()
+    val rooms by homeScreenViewModel.rooms.collectAsState()
+    // FIXME: why doesn't the updated last server id actually update the UI?
+    val currentServerId by remember { derivedStateOf { uiState.currentServerId } }
+    val currentChannelId by remember { derivedStateOf { uiState.lastServerChannels[uiState.currentServerId] } }
+    val currentServer = currentServerId?.let { rooms[RoomId(it)] as? RoomTree.Space? }
+    val currentChannel = currentChannelId?.let { cid -> currentServerId?.let { sid -> (rooms[RoomId(sid)] as? RoomTree.Space?)?.children?.get(RoomId(cid)) as? RoomTree.Channel? } }
 
     Row(
+        modifier = Modifier.statusBarsPadding(),
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.Start
     ) {
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .width(64.dp)
                 .padding(horizontal = 5.dp),
-            verticalArrangement = Arrangement.Bottom
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            item {
                 val shape =
-                    if (currentServer == null) MaterialTheme.shapes.large else CircleShape
-                if (userProfileIcon != null && client != null) {
+                    if (currentServerId == null) MaterialTheme.shapes.large else CircleShape
+                if (uiState.userInfo?.avatarUrl != null && uiState.client != null) {
                     MatrixImage(
                         modifier = Modifier
                             .aspectRatio(1.0F)
                             .fillMaxWidth()
                             .clip(shape)
                             .clickable {
-                                currentServer = null
+                                homeScreenViewModel.selectServer(null)
                                 onNavigate(
                                     "profile",
                                     "@me",
                                     ""
                                 )
                             },
-                        client = client,
-                        mxcUri = userProfileIcon,
+                        client = uiState.client!!,
+                        mxcUri = uiState.userInfo?.avatarUrl!!,
                     )
                 } else {
                     OutlinedButton(
@@ -116,12 +110,12 @@ fun ServerChannelNav(
                         shape = shape,
                         contentPadding = PaddingValues(0.dp),
                         onClick = {
-                            currentServer = null
-                                onNavigate(
-                                    "profile",
-                                    "@me",
-                                    ""
-                                )
+                            homeScreenViewModel.selectServer(null)
+                            onNavigate(
+                                "profile",
+                                "@me",
+                                ""
+                            )
                         }
                     ) {
                         Icon(
@@ -130,11 +124,14 @@ fun ServerChannelNav(
                         )
                     }
                 }
-                rooms.values.filterIsInstance<RoomTree.Space>().forEachIndexed { _, space ->
+            }
+
+            rooms.values.filterIsInstance<RoomTree.Space>().forEachIndexed { _, space ->
+                item {
                     val shape =
-                        if (space.space.roomId == currentServer?.space?.roomId) MaterialTheme.shapes.large else CircleShape
+                        if (space.space.roomId.full == currentServerId) MaterialTheme.shapes.large else CircleShape
                     val elevation =
-                        if (space.space.roomId == currentServer?.space?.roomId) ButtonDefaults.elevatedButtonElevation() else ButtonDefaults.buttonElevation()
+                        if (space.space.roomId.full == currentServerId) ButtonDefaults.elevatedButtonElevation() else ButtonDefaults.buttonElevation()
                     Button(
                         modifier = Modifier
                             .aspectRatio(1.0F)
@@ -142,18 +139,18 @@ fun ServerChannelNav(
                         shape = shape,
                         contentPadding = PaddingValues(0.dp),
                         onClick = {
-                            currentServer = space
-                            currentChannel = lastServerChannels[space.space.roomId.full]?.let {
-                                space.children[RoomId(it)] as? RoomTree.Channel?
-                            }
+                            homeScreenViewModel.selectChannel(
+                                space.space.roomId.full,
+                                uiState.lastServerChannels[currentServerId]
+                            )
                         },
                         elevation = elevation
                     ) {
-                        if (space.space.avatarUrl != null && client != null)
+                        if (space.space.avatarUrl != null && uiState.client != null)
                             MatrixImage(
                                 modifier = Modifier.fillMaxSize(),
                                 mxcUri = space.space.avatarUrl!!,
-                                client = client
+                                client = uiState.client!!
                             )
                         else
                             Text(
@@ -165,6 +162,7 @@ fun ServerChannelNav(
                 }
             }
         }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -178,12 +176,20 @@ fun ServerChannelNav(
                     .background(Color(0x22000000)),
                 contentAlignment = Alignment.BottomStart
             ) {
-                if (currentServer?.space?.avatarUrl != null && client != null)
-                    MatrixImage(
-                        modifier = Modifier.fillMaxWidth(),
-                        mxcUri = currentServer?.space?.avatarUrl!!,
-                        client = client
-                    )
+                if (uiState.client != null) {
+                    if (currentServer?.space?.avatarUrl != null)
+                        MatrixImage(
+                            modifier = Modifier.fillMaxWidth(),
+                            mxcUri = currentServer.space.avatarUrl!!,
+                            client = uiState.client!!
+                        )
+                    else if (uiState.userInfo?.avatarUrl != null)
+                        MatrixImage(
+                            modifier = Modifier.fillMaxWidth(),
+                            client = uiState.client!!,
+                            mxcUri = uiState.userInfo?.avatarUrl!!
+                        )
+                }
                 Text(
                     currentServer?.space?.name?.explicitName ?: "Direct Messages",
                     modifier = Modifier.padding(start = 10.dp),
@@ -199,61 +205,80 @@ fun ServerChannelNav(
                     .verticalScroll(rememberScrollState())
             ) {
                 if (currentServer != null) {
-
-                    currentServer!!.children.values.groupBy { it.instanceOf(RoomTree.Channel::class) }.forEach { (isTopLevelChannel, rooms) ->
+                    currentServer.children.values.groupBy { it.instanceOf(RoomTree.Channel::class) }.entries.sortedBy { it.key }.forEach { (isTopLevelChannel, rooms) ->
                         if (isTopLevelChannel) {
-                            (rooms as List<RoomTree.Channel>).forEach { room ->
+                            Text(
+                                modifier = Modifier.padding(start = 5.dp),
+                                text = "rooms",
+                                fontSize = 15.sp,
+                                textAlign = TextAlign.Start,
+                                fontWeight = FontWeight.Black,
+                                color = Color.DarkGray,
+                                style = TextStyle(fontFeatureSettings = "smcp")
+                            )
+
+                            (rooms as List<RoomTree.Channel>).sortedByDescending { it.room.lastRelevantEventTimestamp }.forEach { room ->
                                 ChannelRow(
                                     channel = room.room,
-                                    client = client,
+                                    client = uiState.client,
                                     selected = currentChannel == room,
                                     onClick = {
-                                        currentChannel = room
+                                        homeScreenViewModel.selectChannel(
+                                            currentServer.space.roomId.full,
+                                            room.room.roomId.full
+                                        )
                                         onNavigate(
                                             "channel",
-                                            currentServer?.space?.roomId?.full!!,
+                                            currentServer.space.roomId.full,
                                             room.room.roomId.full
                                         )
                                     }
                                 )
                             }
-                        }
-                    }
+                        } else {
+                            (rooms as List<RoomTree.Space>).forEach { category ->
+                                Text(
+                                    modifier = Modifier.padding(start = 5.dp),
+                                    text = category.space.name?.explicitName?.lowercase(Locale.getDefault()) ?: "unknown",
+                                    fontSize = 15.sp,
+                                    textAlign = TextAlign.Start,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color.DarkGray,
+                                    style = TextStyle(fontFeatureSettings = "smcp")
+                                )
 
-                    currentServer!!.children.values.filterIsInstance<RoomTree.Space>().forEach { category ->
-                        Text(
-                            category.space.name?.explicitName?.lowercase(Locale.getDefault()) ?: "unknown",
-                            fontSize = 15.sp,
-                            textAlign = TextAlign.Start,
-                            fontWeight = FontWeight.Black,
-                            color = Color.DarkGray,
-                            style = TextStyle(fontFeatureSettings = "smcp")
-                        )
-
-                        category.children.values.filterIsInstance<RoomTree.Channel>().forEach { room ->
-                            ChannelRow(
-                                channel = room.room,
-                                client = client,
-                                selected = currentChannel == room,
-                                onClick = {
-                                    currentChannel = room
-                                    onNavigate(
-                                        "channel",
-                                        currentServer?.space?.roomId?.full!!,
-                                        room.room.roomId.full
+                                category.children.values.filterIsInstance<RoomTree.Channel>().forEach { room ->
+                                    ChannelRow(
+                                        channel = room.room,
+                                        client = uiState.client,
+                                        selected = currentChannel == room,
+                                        onClick = {
+                                            homeScreenViewModel.selectChannel(
+                                                currentServer.space.roomId.full,
+                                                room.room.roomId.full
+                                            )
+                                            onNavigate(
+                                                "channel",
+                                                currentServer.space.roomId.full,
+                                                room.room.roomId.full
+                                            )
+                                        }
                                     )
                                 }
-                            )
+                            }
                         }
                     }
                 } else {
                     rooms.values.filterIsInstance<RoomTree.Channel>().forEach { room ->
                         ChannelRow(
                             channel = room.room,
-                            client = client,
+                            client = uiState.client,
                             selected = currentChannel == room,
                             onClick = {
-                                currentChannel = room
+                                homeScreenViewModel.selectChannel(
+                                    "@me",
+                                    room.room.roomId.full
+                                )
                                 onNavigate(
                                     "channel",
                                     "@me",
@@ -278,7 +303,7 @@ fun ChannelRow(
     Row(
         modifier = Modifier
             .padding(horizontal = 10.dp)
-            .height(40.dp)
+            .height(38.dp)
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.small)
             .background(
@@ -291,26 +316,39 @@ fun ChannelRow(
             },
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val textColor =
+            if (selected) MaterialTheme.colorScheme.onSecondaryContainer else Color.Gray
         Box(
             modifier = Modifier
                 .padding(horizontal = 5.dp)
-                .size(24.dp)
+                .size(20.dp)
         ) {
             Icon(
                 imageVector = ImageVector.vectorResource(R.drawable.channel_hashtag),
-                contentDescription = "channel hashtag icon"
+                contentDescription = "channel hashtag icon",
+                tint = textColor
             )
         }
-        val textColor =
-            if (selected) MaterialTheme.colorScheme.onSecondaryContainer else Color.Gray
         Text(
             channel.name?.explicitName ?: "?",
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Start,
-            fontSize = 20.sp,
+            fontSize = 16.sp,
             color = textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+        // FIXME: This doesn't work
+        if (channel.unreadMessageCount > 0) {
+            Box(
+                modifier = Modifier.background(EngineeringOrange).clip(CircleShape).width(10.dp),
+            ) {
+                Text(
+                    text = channel.unreadMessageCount.toString(),
+                    color = Color.Black,
+                    fontSize = 11.sp
+                )
+            }
+        }
     }
 }

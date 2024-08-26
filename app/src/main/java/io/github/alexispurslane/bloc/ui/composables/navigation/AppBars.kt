@@ -1,5 +1,8 @@
 package io.github.alexispurslane.bloc.ui.composables.navigation
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicTextField
@@ -39,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -51,7 +56,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.alexispurslane.bloc.R
+import io.github.alexispurslane.bloc.viewmodels.ChannelViewModel
 import net.folivo.trixnity.client.store.Room
 
 @Preview
@@ -60,8 +67,12 @@ fun MessageBar(
     channelName: String = "",
     value: String = "",
     onValueChange: (String) -> Unit = {},
-    onSubmit: () -> Unit = {}
+    onSubmit: () -> Unit = {},
+    channelViewModel: ChannelViewModel = hiltViewModel()
 ) {
+    val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenMultipleDocuments()) {
+        channelViewModel.addFiles(it)
+    }
     BottomAppBar(
         containerColor = MaterialTheme.colorScheme.background,
     ) {
@@ -69,7 +80,10 @@ fun MessageBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
-                onClick = { /*TODO*/ }) {
+                onClick = {
+                    launcher.launch(arrayOf("*/*"))
+                }
+            ) {
                 Icon(
                     imageVector = Icons.Filled.AddCircle,
                     contentDescription = "Add attachment"
@@ -78,10 +92,9 @@ fun MessageBar(
             MessageBoxTextField(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(5.dp)
-                    .height(50.dp),
+                    .heightIn(min = 50.dp),
                 placeholder = {
-                    Text("Message $channelName...")
+                    Text("Message...")
                 },
                 value = value,
                 onValueChange = onValueChange,
@@ -89,13 +102,8 @@ fun MessageBar(
                     capitalization = KeyboardCapitalization.Sentences,
                     autoCorrect = true,
                     keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Send
+                    imeAction = ImeAction.Default
                 ),
-                keyboardActions = KeyboardActions(
-                    onSend = {
-                        onSubmit()
-                    }
-                )
             )
             IconButton(
                 onClick = { /*TODO*/ }) {

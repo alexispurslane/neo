@@ -8,7 +8,9 @@ import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,6 +42,7 @@ fun MatrixImage(
     modifier: Modifier = Modifier,
     client: MatrixClient,
     mxcUri: String,
+    shouldFill: Boolean = true
 ) {
     var bitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var size by remember { mutableStateOf(IntSize.Zero) }
@@ -63,10 +66,10 @@ fun MatrixImage(
     ) {
         bitmap?.let {
             Image(
-                modifier = Modifier.fillMaxSize(),
+                modifier = if (shouldFill) Modifier.fillMaxSize() else Modifier.fillMaxHeight(),
                 bitmap = it,
                 contentDescription = null,
-                contentScale = ContentScale.Crop
+                contentScale = if (shouldFill) ContentScale.FillWidth else ContentScale.Fit
             )
         }
     }

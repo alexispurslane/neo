@@ -10,6 +10,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -28,6 +29,7 @@ import io.github.alexispurslane.bloc.data.AccountsRepository
 import io.github.alexispurslane.bloc.data.RoomsRepository
 import io.github.alexispurslane.bloc.ui.composables.screens.HomeScreen
 import io.github.alexispurslane.bloc.ui.composables.screens.LoginScreen
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +46,10 @@ fun MainScreen(
     mainViewModel: MainViewModel = hiltViewModel()
 ) {
     val mainState by mainViewModel.uiState.collectAsState()
+
+    LaunchedEffect(true) {
+        mainViewModel.showLoginScreenAfterDelay()
+    }
 
     when (mainState.state) {
         MainUiScreenState.LOADING -> LoadingScreen()
@@ -93,7 +99,7 @@ enum class MainUiScreenState {
 }
 
 data class MainUiState(
-    val state: MainUiScreenState = MainUiScreenState.LOGGED_OUT
+    var state: MainUiScreenState = MainUiScreenState.LOADING
 )
 
 @HiltViewModel
@@ -101,20 +107,33 @@ class MainViewModel @Inject constructor(
     private val accountsRepository: AccountsRepository,
     private val roomsRepository: RoomsRepository,
 ): ViewModel() {
-
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
             accountsRepository.matrixClientFlow.filterNotNull().first()
-            accountsRepository.matrixClient?.loginState?.collectLatest { loginState ->
+            accountsRepository.matrixClient?.loginState?.first()?.let { loginState ->
                 if (loginState == MatrixClient.LoginState.LOGGED_IN) {
                     _uiState.update {
                         it.copy(
                             state = MainUiScreenState.LOGGED_IN
                         )
                     }
+                }
+            }
+        }
+    }
+
+    fun showLoginScreenAfterDelay() {
+        viewModelScope.launch {
+            delay(500)
+            if (uiState.value.state != MainUiScreenState.LOGGED_IN) {
+                Log.d("Main Screen", "Still not logged in, assuming new login needed")
+                _uiState.update {
+                    it.copy(
+                        state = MainUiScreenState.LOGGED_OUT
+                    )
                 }
             }
         }

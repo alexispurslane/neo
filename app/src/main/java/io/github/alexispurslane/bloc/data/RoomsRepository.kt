@@ -115,8 +115,10 @@ class RoomsRepository @Inject constructor(
     init {
         GlobalScope.launch(Dispatchers.IO) {
             accountsRepository.matrixClientFlow.filterNotNull().first()
+            Log.d("Room Repository", "first non-null matrixclient, using that")
             val matrixClient = accountsRepository.matrixClient!!
-            matrixClient.room.getAll().flattenValues(throttle = 3.seconds).first().let {
+            matrixClient.room.getAll().flattenValues().first().let {
+                Log.d("Room Repository", "Got rooms, building room hiearchy")
                 roomDirectory.emit(it.associateBy { it.roomId })
                 val roomsMap = mutableMapOf<RoomId, RoomTree>()
                 it.forEach { room ->
