@@ -76,6 +76,7 @@ class HomeScreenViewModel @Inject constructor(
     }
 
     fun selectChannel(newServerId: String, newChannelId: String?) {
+        selectServer(newServerId)
         saveLast(
             newServerId,
             newChannelId ?: ""

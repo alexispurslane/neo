@@ -65,7 +65,6 @@ fun ServerChannelNav(
 ) {
     val uiState by homeScreenViewModel.uiState.collectAsState()
     val rooms by homeScreenViewModel.rooms.collectAsState()
-    // FIXME: why doesn't the updated last server id actually update the UI?
     val currentServerId by remember { derivedStateOf { uiState.currentServerId } }
     val currentChannelId by remember { derivedStateOf { uiState.lastServerChannels[uiState.currentServerId] } }
     val currentServer = currentServerId?.let { rooms[RoomId(it)] as? RoomTree.Space? }
