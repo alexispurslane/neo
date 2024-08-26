@@ -1,5 +1,6 @@
 package io.github.alexispurslane.bloc.ui.composables.navigation
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -138,10 +139,19 @@ fun ServerChannelNav(
                         shape = shape,
                         contentPadding = PaddingValues(0.dp),
                         onClick = {
-                            homeScreenViewModel.selectChannel(
-                                space.space.roomId.full,
-                                uiState.lastServerChannels[currentServerId]
-                            )
+                            val last = uiState.lastServerChannels[space.space.roomId.full]
+
+                            if (last != null) {
+                                homeScreenViewModel.selectChannel(
+                                    space.space.roomId.full,
+                                    last
+                                )
+                                onNavigate(
+                                    "channel",
+                                    space.space.roomId.full,
+                                    last
+                                )
+                            }
                         },
                         elevation = elevation
                     ) {
@@ -329,7 +339,8 @@ fun ChannelRow(
             )
         }
         Text(
-            channel.name?.explicitName ?: "?",
+            modifier = Modifier.weight(5f),
+            text = channel.name?.explicitName ?: "?",
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Start,
             fontSize = 16.sp,
@@ -338,13 +349,11 @@ fun ChannelRow(
             overflow = TextOverflow.Ellipsis
         )
         // FIXME: This doesn't work
+        Log.d("Server Channel Nav", "${channel.name?.explicitName}:")
         if (channel.unreadMessageCount > 0) {
-            Box(
-                modifier = Modifier.background(EngineeringOrange).clip(CircleShape).width(10.dp),
-            ) {
+            Box(modifier = Modifier.weight(1f).size(20.dp).clip(CircleShape).background(EngineeringOrange)) {
                 Text(
                     text = channel.unreadMessageCount.toString(),
-                    color = Color.Black,
                     fontSize = 11.sp
                 )
             }

@@ -1,6 +1,8 @@
 package io.github.alexispurslane.bloc.ui.composables.screens
 
 import android.util.Log
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.DismissibleDrawerSheet
 import androidx.compose.material3.DismissibleNavigationDrawer
 import androidx.compose.material3.DrawerValue
@@ -12,6 +14,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -54,41 +57,43 @@ fun HomeScreen(
             }
         }
     ) {
-        NavHost(navController, startDestination = "loading") {
-            composable("loading") {
-                val rooms by homeScreenViewModel.rooms.collectAsState()
-                val loadedUserInfo by remember { derivedStateOf { uiState.userInfo != null && rooms.isNotEmpty() } }
-                LaunchedEffect(loadedUserInfo) {
-                    Log.d("Home Screen Nav", "Loaded user info. ${uiState.currentServerId}")
-                    if (uiState.currentServerId != null) {
-                        navController.navigate(
-                            "channel/${uiState.lastServerChannels[uiState.currentServerId]}"
-                        )
-                    } else if (loadedUserInfo) {
-                        navController.navigate(
-                            "profile/@me"
-                        )
+        Box(modifier = Modifier.imePadding()) {
+            NavHost(navController, startDestination = "loading") {
+                composable("loading") {
+                    val rooms by homeScreenViewModel.rooms.collectAsState()
+                    val loadedUserInfo by remember { derivedStateOf { uiState.userInfo != null && rooms.isNotEmpty() } }
+                    LaunchedEffect(loadedUserInfo) {
+                        Log.d("Home Screen Nav", "Loaded user info. ${uiState.currentServerId}")
+                        if (uiState.currentServerId != null) {
+                            navController.navigate(
+                                "channel/${uiState.lastServerChannels[uiState.currentServerId]}"
+                            )
+                        } else if (loadedUserInfo) {
+                            navController.navigate(
+                                "profile/@me"
+                            )
+                        }
                     }
+                    LoadingScreen()
                 }
-                LoadingScreen()
-            }
-            composable(
-                "profile/{userId}",
-                deepLinks = listOf(navDeepLink {
-                    uriPattern = "bloc://profile/{userId}"
-                })
-            ) {
-                UserProfileScreen(navController)
-            }
-            composable(
-                "channel/{channelId}",
-                deepLinks = listOf(navDeepLink {
-                    uriPattern = "bloc://channel/{channelId}"
-                })
-            ) {
-                // channelId argument automatically passed to
-                // ServerChannelViewModel by SavedStateHandle!
-                ChannelViewScreen(navController)
+                composable(
+                    "profile/{userId}",
+                    deepLinks = listOf(navDeepLink {
+                        uriPattern = "bloc://profile/{userId}"
+                    })
+                ) {
+                    UserProfileScreen(navController)
+                }
+                composable(
+                    "channel/{channelId}",
+                    deepLinks = listOf(navDeepLink {
+                        uriPattern = "bloc://channel/{channelId}"
+                    })
+                ) {
+                    // channelId argument automatically passed to
+                    // ServerChannelViewModel by SavedStateHandle!
+                    ChannelViewScreen(navController)
+                }
             }
         }
     }

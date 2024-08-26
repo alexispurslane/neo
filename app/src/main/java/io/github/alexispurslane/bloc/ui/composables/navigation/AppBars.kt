@@ -1,6 +1,8 @@
 package io.github.alexispurslane.bloc.ui.composables.navigation
 
 import android.content.Intent
+import android.provider.OpenableColumns
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -43,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.TextStyle
@@ -60,6 +63,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.alexispurslane.bloc.R
 import io.github.alexispurslane.bloc.viewmodels.ChannelViewModel
 import net.folivo.trixnity.client.store.Room
+import kotlin.reflect.jvm.internal.impl.descriptors.Visibilities.Local
 
 @Preview
 @Composable
@@ -70,8 +74,20 @@ fun MessageBar(
     onSubmit: () -> Unit = {},
     channelViewModel: ChannelViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenMultipleDocuments()) {
-        channelViewModel.addFiles(it)
+        it.forEach { uri ->
+            context.contentResolver.apply {
+                query(uri, null, null, null, null)?.use { cursor ->
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    cursor.moveToFirst()
+                    cursor.getString(nameIndex)
+                }?.let { fileName ->
+                    Log.d("Message Bar", "File name: $fileName")
+                    channelViewModel.addFile(fileName, uri)
+                }
+            }
+        }
     }
     BottomAppBar(
         containerColor = MaterialTheme.colorScheme.background,

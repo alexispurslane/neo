@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import android.webkit.MimeTypeMap
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
@@ -35,6 +36,8 @@ import kotlinx.coroutines.launch
 import net.folivo.trixnity.client.MatrixClient
 import net.folivo.trixnity.client.media
 import net.folivo.trixnity.client.room
+import net.folivo.trixnity.client.room.message.audio
+import net.folivo.trixnity.client.room.message.file
 import net.folivo.trixnity.client.room.message.image
 import net.folivo.trixnity.client.room.message.text
 import net.folivo.trixnity.client.store.Room
@@ -60,7 +63,7 @@ data class ServerChannelUiState(
     val fontSize: TextUnit = 16.sp,
     val justifyText: Boolean = true,
     val expandImages: Boolean = true,
-    val files: List<Uri> = listOf()
+    val files: Map<String, Uri> = mapOf()
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -136,21 +139,49 @@ class ChannelViewModel @Inject constructor(
                             text(it.draftMessage)
                         }
                     }
-                    it.files.forEach { uri ->
+                    it.files.forEach { (name, uri) ->
                         context.contentResolver.openInputStream(uri)?.buffered()?.use { it.readBytes() }?.let { bytes ->
                             accountsRepository.matrixClient?.room?.sendMessage(RoomId(it.channelId)) {
-                                image(
-                                    body = uri.lastPathSegment?.split("/")?.last() ?: "",
-                                    image = flowOf(bytes),
-                                    type = ContentType.Image.Any
-                                )
+                                val mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.split(".").last())
+                                if (mime?.startsWith("image/") == true) {
+                                    image(
+                                        body = name,
+                                        fileName = name,
+                                        image = flowOf(bytes),
+                                        type = when (mime.split("/").last()) {
+                                            "png" -> ContentType.Image.PNG
+                                            "jpeg" -> ContentType.Image.JPEG
+                                            "gif" -> ContentType.Image.GIF
+                                            "svg" -> ContentType.Image.SVG
+                                            else -> ContentType.Image.Any
+                                        }
+                                    )
+                                } else if (mime?.startsWith("audio/") == true) {
+                                    audio(
+                                        body = name,
+                                        fileName = name,
+                                        audio = flowOf(bytes),
+                                        type = when (mime.split("/").last()) {
+                                            "ogg" -> ContentType.Audio.OGG
+                                            "mp4" -> ContentType.Audio.MP4
+                                            "mpeg" -> ContentType.Audio.MPEG
+                                            else -> ContentType.Audio.Any
+                                        }
+                                    )
+                                } else {
+                                    file(
+                                        body = name,
+                                        fileName = name,
+                                        file = flowOf(bytes)
+                                    )
+                                }
                             }
                             Log.d("Channel View", "sent file ${uri.lastPathSegment?.split("/")?.last()}, url $uri, byte count: ${bytes.size}")
                         }
                     }
                     it.copy(
                         draftMessage = "",
-                        files = listOf()
+                        files = mutableMapOf()
                     )
                 } else {
                     it
@@ -159,11 +190,10 @@ class ChannelViewModel @Inject constructor(
         }
     }
 
-    fun addFiles(uris: List<Uri>) {
-        Log.d("Channel View", "Files: $uris")
+    fun addFile(name: String, uri: Uri) {
         _uiState.update {
             it.copy(
-                files = it.files + uris
+                files = it.files + (name to uri)
             )
         }
     }
@@ -221,6 +251,14 @@ class ChannelViewModel @Inject constructor(
             it.copy(
                 isSendError = false,
                 error = null
+            )
+        }
+    }
+
+    fun removeFiles(name: String) {
+        _uiState.update {
+            it.copy(
+                files = it.files - name
             )
         }
     }

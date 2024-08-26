@@ -83,6 +83,10 @@ android {
             )
         }
     }
+
+    packaging {
+        resources.excludes.add("META-INF/INDEX.LIST")
+    }
 }
 
 task<Exec>("stopApp") {
@@ -132,6 +136,9 @@ dependencies {
 
     implementation("androidx.profileinstaller:profileinstaller:1.3.1")
     implementation("androidx.benchmark:benchmark-macro-junit4:1.3.0")
+
+    debugImplementation("org.slf4j:slf4j-api:2.0.15")
+    debugImplementation("com.github.tony19:logback-android:3.0.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
