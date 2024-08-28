@@ -37,13 +37,18 @@ import net.folivo.trixnity.client.MatrixClient
 import net.folivo.trixnity.client.media
 import net.folivo.trixnity.client.room
 import net.folivo.trixnity.client.room.message.audio
+import net.folivo.trixnity.client.room.message.emote
 import net.folivo.trixnity.client.room.message.file
 import net.folivo.trixnity.client.room.message.image
+import net.folivo.trixnity.client.room.message.notice
 import net.folivo.trixnity.client.room.message.text
 import net.folivo.trixnity.client.store.Room
 import net.folivo.trixnity.client.store.TimelineEvent
 import net.folivo.trixnity.core.model.RoomId
 import net.folivo.trixnity.utils.toByteArray
+import org.intellij.markdown.flavours.commonmark.CommonMarkFlavourDescriptor
+import org.intellij.markdown.html.HtmlGenerator
+import org.intellij.markdown.parser.MarkdownParser
 import java.io.File
 import javax.inject.Inject
 
@@ -78,6 +83,8 @@ class ChannelViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ServerChannelUiState())
     val uiState: StateFlow<ServerChannelUiState> = _uiState.asStateFlow()
+
+    val parser = MarkdownParser(CommonMarkFlavourDescriptor())
 
     val users
         get() = accountsRepository.users
@@ -136,7 +143,16 @@ class ChannelViewModel @Inject constructor(
                 if (it.channelId != null) {
                     if (it.draftMessage.isNotBlank()) {
                         accountsRepository.matrixClient?.room?.sendMessage(RoomId(it.channelId)) {
-                            text(it.draftMessage)
+                            val tree = parser.buildMarkdownTreeFromString(it.draftMessage)
+                            val html = HtmlGenerator(it.draftMessage, tree, CommonMarkFlavourDescriptor()).generateHtml()
+                            val command = if (it.draftMessage.startsWith('/'))
+                                it.draftMessage.takeWhile { it != ' ' }
+                            else null
+                            when (command) {
+                                "/me" -> emote(formattedBody = html, format = "org.matrix.custom.html", body = it.draftMessage.removePrefix(command))
+                                "/notice" -> notice(formattedBody = html, format = "org.matrix.custom.html", body = it.draftMessage.removePrefix(command))
+                                else -> text(formattedBody = html, format = "org.matrix.custom.html", body = it.draftMessage)
+                            }
                         }
                     }
                     it.files.forEach { (name, uri) ->

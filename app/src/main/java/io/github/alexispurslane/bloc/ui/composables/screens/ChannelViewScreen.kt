@@ -7,7 +7,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -25,9 +27,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -77,36 +84,53 @@ fun ChannelViewScreen(
                 }
             },
             bottomBar = {
+                val draftMessage by remember {
+                    derivedStateOf { uiState.draftMessage }
+                }
+                var currentEmojiCompletions by remember { mutableStateOf(listOf<String>()) }
+
+                LaunchedEffect(draftMessage) {
+                    val prospectiveEmojiName = draftMessage.takeLastWhile { it != ':' }
+                    val inEmoji = !prospectiveEmojiName.contains(' ') &&
+                            draftMessage.count { it == ':' }.mod(2) != 0 &&
+                            prospectiveEmojiName.length > 2
+                    if (inEmoji) {
+                        currentEmojiCompletions = listOf(prospectiveEmojiName)
+                    } else {
+                        currentEmojiCompletions = listOf()
+                    }
+                }
+
                 Column {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 200.dp)
-                            .verticalScroll(rememberScrollState())
-                            .background(DrawerDefaults.containerColor),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Bottom
-                    ) {
-                        uiState.files.keys.forEachIndexed { i, name ->
-                            TextButton(
-                                modifier = Modifier
-                                    .padding(
-                                        start = 5.dp,
-                                        end = 5.dp,
-                                        bottom = 15.dp,
-                                        top = if (i == 0) 15.dp else 0.dp
-                                    )
-                                    .height(38.dp)
-                                    .fillMaxWidth()
-                                    .clip(MaterialTheme.shapes.large)
-                                    .background(Color.Black),
-                                onClick = {
-                                    channelViewModel.removeFiles(name)
+                    if (currentEmojiCompletions.isNotEmpty()) {
+                        CompletionDrawer {
+                            currentEmojiCompletions.forEachIndexed { i, name ->
+                                CompletionDrawerElement(
+                                    i,
+                                    onClick = { }
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(end = 5.dp)
+                                            .size(24.dp)
+                                            .align(Alignment.CenterVertically)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Close,
+                                            contentDescription = "Custom emoji"
+                                        )
+                                    }
+
+                                    Text(text = name)
                                 }
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.Start
+                            }
+                        }
+                    } else if (uiState.files.isNotEmpty()) {
+                        CompletionDrawer {
+                            uiState.files.keys.forEachIndexed { i, name ->
+                                CompletionDrawerElement(
+                                    i,
+                                    onClick = { channelViewModel.removeFiles(name) }
                                 ) {
                                     Box(
                                         modifier = Modifier
@@ -149,4 +173,42 @@ fun ChannelViewScreen(
             uiState.error!!
         )
     }
+}
+
+@Composable
+fun CompletionDrawerElement(index: Int, onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
+    TextButton(
+        modifier = Modifier
+            .padding(
+                start = 5.dp,
+                end = 5.dp,
+                bottom = 15.dp,
+                top = if (index == 0) 15.dp else 0.dp
+            )
+            .height(38.dp)
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .background(Color.Black),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start,
+            content = content
+        )
+    }
+}
+
+@Composable
+fun CompletionDrawer(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 200.dp)
+            .verticalScroll(rememberScrollState())
+            .background(DrawerDefaults.containerColor),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Bottom,
+        content = content
+    )
 }

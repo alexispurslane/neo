@@ -55,44 +55,6 @@ sealed class RoomTree {
     data class Channel(val room: Room): RoomTree()
 }
 
-
-/**
- * Redeclaring Trixnity's GetHierarchy definition because it uses the wrong API version, see:
- * <a href="https://gitlab.com/trixnity/trixnity/-/issues/259">here</a>
- */
-@Serializable
-@Resource("/_matrix/client/v1/rooms/{roomId}/hierarchy")
-@HttpMethod(GET)
-data class GetHierarchy(
-    @SerialName("roomId") val roomId: RoomId,
-    @SerialName("from") val from: String? = null,
-    @SerialName("limit") val limit: Long? = null,
-    @SerialName("max_depth") val maxDepth: Long? = null,
-    @SerialName("suggested_only") val suggestedOnly: Boolean = false,
-    @SerialName("user_id") val asUserId: UserId? = null
-) : MatrixEndpoint<Unit, GetHierarchy.Response> {
-    @Serializable
-    data class Response(
-        @SerialName("next_batch") val nextBatch: String? = null,
-        @SerialName("rooms") val rooms: List<PublicRoomsChunk>,
-    ) {
-        @Serializable
-        data class PublicRoomsChunk(
-            @SerialName("avatar_url") val avatarUrl: String? = null,
-            @SerialName("canonical_alias") val canonicalAlias: RoomAliasId? = null,
-            @SerialName("children_state") val childrenState: Set<@Contextual StrippedStateEvent<*>>,
-            @SerialName("guest_can_join") val guestCanJoin: Boolean,
-            @SerialName("join_rule") val joinRule: JoinRulesEventContent.JoinRule = JoinRulesEventContent.JoinRule.Public,
-            @SerialName("name") val name: String? = null,
-            @SerialName("num_joined_members") val joinedMembersCount: Long,
-            @SerialName("room_id") val roomId: RoomId,
-            @SerialName("room_type") val roomType: CreateEventContent.RoomType? = null,
-            @SerialName("topic") val topic: String? = null,
-            @SerialName("world_readable") val worldReadable: Boolean,
-        )
-    }
-}
-
 suspend fun RoomService.getChildren(roomId: RoomId) =
     getAllState(roomId, eventContentClass = ChildEventContent::class).first().keys
 
