@@ -1,22 +1,32 @@
 package io.github.alexispurslane.bloc.data
 
 import android.util.Log
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import io.github.alexispurslane.bloc.ui.composables.screens.Logo
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.transform
+import kotlinx.coroutines.flow.update
 import net.folivo.trixnity.client.room
 import net.folivo.trixnity.client.room.Timeline
+import net.folivo.trixnity.client.room.TimelineEventAggregation
+import net.folivo.trixnity.client.room.getTimelineEventReactionAggregation
 import net.folivo.trixnity.client.room.toFlowList
 import net.folivo.trixnity.client.store.TimelineEvent
 import net.folivo.trixnity.client.store.eventId
+import net.folivo.trixnity.client.store.sender
+import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.RoomId
+import net.folivo.trixnity.core.model.events.m.ReactionEventContent
 import net.folivo.trixnity.core.model.events.m.RelatesTo
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent
 import javax.inject.Inject
@@ -33,15 +43,44 @@ class MessagesRepository @Inject constructor(
     val channelMessages
         get(): Map<RoomId, Flow<List<TimelineEvent>>> = _channelMessages
 
+    val messageReactions: SnapshotStateMap<EventId, MutableStateFlow<TimelineEventAggregation.Reaction>> = mutableStateMapOf()
+
     private val USER_MENTION_REGEX by lazy { Regex("@([a-z0-9._=\\-/+]+):(?=.{1,255}\$)[0-9A-Za-z](?:(?:[0-9A-Za-z]|-){0,61}[0-9A-Za-z])?(?:\\.[0-9A-Za-z](?:(?:[0-9A-Za-z]|-){0,61}[0-9A-Za-z])?)*\\.?") }
 
     private fun treatMessages(messages: List<TimelineEvent>): List<TimelineEvent> {
         return messages.fold<TimelineEvent, MutableMap<String, TimelineEvent>>(mutableMapOf()) { acc, message ->
-            acc[message.eventId.full] = message
-            when (message.content?.getOrNull()) {
+            val content = message.content?.getOrNull()
+            when (content) {
                 is RoomMessageEventContent -> {
+                    acc[message.eventId.full] = message
                     acc
                 }
+
+                is ReactionEventContent -> {
+                    val relates = content.relatesTo
+                    if (relates != null) {
+                        val eid = content.relatesTo?.eventId
+                        val reactions = messageReactions[eid]
+                        if (reactions != null) {
+                            reactions.update {
+                                val entry =
+                                    (it.reactions[relates.key] ?: emptySet()) + message.sender
+                                it.copy(
+                                    reactions = it.reactions + (relates.key!! to entry)
+                                )
+                            }
+                        } else {
+                            messageReactions[eid!!] = MutableStateFlow(
+                                TimelineEventAggregation.Reaction(
+                                    reactions = mapOf(relates.key!! to setOf(message.sender))
+                                )
+                            )
+                        }
+
+                    }
+                    acc
+                }
+
                 else -> {
                     acc
                 }

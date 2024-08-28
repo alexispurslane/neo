@@ -57,3 +57,4 @@
 -dontwarn org.slf4j.impl.StaticMarkerBinder
 -dontwarn org.slf4j.spi.CallerBoundaryAware
 -dontwarn org.slf4j.spi.LoggingEventBuilder
+-dontwarn javax.lang.model.element.Modifier

@@ -35,9 +35,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +55,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,7 +85,9 @@ import com.aghajari.compose.text.AnnotatedText
 import com.aghajari.compose.text.ContentAnnotatedString
 import com.aghajari.compose.text.asAnnotatedString
 import io.github.alexispurslane.bloc.R
+import io.github.alexispurslane.bloc.data.fullUserId
 import io.github.alexispurslane.bloc.data.models.User
+import io.github.alexispurslane.bloc.ui.theme.EngineeringOrange
 import io.github.alexispurslane.bloc.viewmodels.ServerChannelUiState
 import io.github.alexispurslane.bloc.viewmodels.ChannelViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -165,7 +172,7 @@ fun MessagesView(
                 Message(
                     modifier = Modifier
                         .padding(vertical = 5.dp),
-                    currentUserId = uiState.currentUserId,
+                    currentUserId = uiState.currentUserInfo?.fullUserId(),
                     message = message,
                     member = channelViewModel.users[message.sender],
                     prevMessage = messages.getOrNull(
@@ -400,6 +407,57 @@ fun Message(
                                     lazyListState = lazyListState,
                                     index = index
                                 )
+                                if (channelUiState.client != null) {
+                                    val reactions by remember { derivedStateOf { channelViewModel.reactions[message.eventId] } }
+                                    reactions?.let {
+                                        val reactionsState by it.collectAsState()
+                                        Row(
+                                            modifier = Modifier.padding(top = 5.dp)
+                                        ) {
+                                            reactionsState.reactions.forEach { (emoji, users) ->
+                                                Log.d("Message Content", "Emoji: $emoji, users: $users, current user: ${channelUiState.currentUserInfo!!.fullUserId()}")
+                                                Row(
+                                                    modifier = Modifier
+                                                        .padding(end = 5.dp)
+                                                        .clip(MaterialTheme.shapes.small)
+                                                        .background(
+                                                            color = if (users.contains(UserId(channelUiState.currentUserInfo!!.fullUserId())))
+                                                                EngineeringOrange
+                                                            else
+                                                                Color.DarkGray
+                                                        )
+                                                        .padding(start = 4.dp, end = 4.dp)
+                                                        .clickable {
+                                                            channelViewModel.react(message.eventId, emoji)
+                                                        },
+                                                ) {
+                                                    if (emoji.startsWith("mxc")) {
+                                                        Log.d("Message Content", emoji)
+                                                        val resources = LocalContext.current.resources
+                                                        MatrixImage(
+                                                            modifier = Modifier.size(
+                                                                (resources.displayMetrics.density * 13.sp.value * 0.6).dp
+
+                                                            )
+                                                                .align(Alignment.CenterVertically),
+                                                            client = channelUiState.client!!,
+                                                            mxcUri = emoji
+                                                        )
+                                                    } else {
+                                                        Text(emoji, fontSize = 13.sp)
+                                                    }
+
+                                                    Text(
+                                                        modifier = Modifier.padding(start = 5.dp),
+                                                        text = users.size.toString(),
+                                                        fontSize = 13.sp,
+                                                        fontFamily = FontFamily.Monospace
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                             is RoomMessageEventContent.FileBased.File -> {
                                 if (content.url != null && channelUiState.client != null) {
@@ -622,7 +680,7 @@ fun MessageContent(
     val resources = LocalContext.current.resources
     val visible = lazyListState?.containItem(index)
     val linkColor = MaterialTheme.colorScheme.secondary
-    val size = (resources.displayMetrics.density * fontSize.value / 1.2).roundToLong()
+    val size = (resources.displayMetrics.density * fontSize.value).roundToLong()
     LaunchedEffect(content, visible) {
         if (visible == true) {
             launch(Dispatchers.IO) {
@@ -633,11 +691,9 @@ fun MessageContent(
                     HtmlCompat.FROM_HTML_MODE_COMPACT,
                     if (client != null)
                         ImageGetter { source ->
-                            Log.d("Message Content Composable", "Image source: $source")
                             if (source!!.startsWith("mxc", ignoreCase = true)) {
                                 runBlocking {
                                     client.media.getThumbnail(source, height = size, width = size).getOrNull()?.toByteArray()?.let { bytes ->
-                                        Log.d("Message Content Composable", "Got image bytes: ${bytes.size}, image size: $size")
                                         BitmapDrawable(resources, BitmapFactory.decodeByteArray(
                                             bytes,
                                             0,
@@ -658,12 +714,15 @@ fun MessageContent(
             }
         }
     }
-    AnnotatedText(
-        text = annotatedString,
-        color = textColor,
-        fontSize = fontSize,
-        textAlign = textAlign,
-        fontStyle = fontStyle
-    )
+
+    SelectionContainer {
+        AnnotatedText(
+            text = annotatedString,
+            color = textColor,
+            fontSize = fontSize,
+            textAlign = textAlign,
+            fontStyle = fontStyle
+        )
+    }
 }
 

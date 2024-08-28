@@ -69,7 +69,7 @@ fun MatrixImage(
                 modifier = if (shouldFill) Modifier.fillMaxSize() else Modifier.fillMaxHeight(),
                 bitmap = it,
                 contentDescription = null,
-                contentScale = if (shouldFill) ContentScale.FillWidth else ContentScale.Fit
+                contentScale = if (shouldFill) ContentScale.Crop else ContentScale.Fit
             )
         }
     }

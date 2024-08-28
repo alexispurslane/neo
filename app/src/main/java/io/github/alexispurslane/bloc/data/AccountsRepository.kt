@@ -48,6 +48,10 @@ data class UserSession(
     val preferences: Map<String, String> = emptyMap()
 )
 
+fun UserSession.fullUserId(): String {
+    return "@$userId:${instanceApiUrl.replace("https://", "")}"
+}
+
 @OptIn(DelicateCoroutinesApi::class)
 @Singleton
 class AccountsRepository @Inject constructor(

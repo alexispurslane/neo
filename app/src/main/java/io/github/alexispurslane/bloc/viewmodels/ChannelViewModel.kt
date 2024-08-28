@@ -1,16 +1,12 @@
 package io.github.alexispurslane.bloc.viewmodels
 
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import android.webkit.MimeTypeMap
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider.getUriForFile
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,6 +15,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.alexispurslane.bloc.data.AccountsRepository
 import io.github.alexispurslane.bloc.data.MessagesRepository
 import io.github.alexispurslane.bloc.data.RoomsRepository
+import io.github.alexispurslane.bloc.data.UserSession
 import io.ktor.http.ContentType
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -27,35 +24,33 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.folivo.trixnity.client.MatrixClient
-import net.folivo.trixnity.client.media
 import net.folivo.trixnity.client.room
 import net.folivo.trixnity.client.room.message.audio
 import net.folivo.trixnity.client.room.message.emote
 import net.folivo.trixnity.client.room.message.file
 import net.folivo.trixnity.client.room.message.image
 import net.folivo.trixnity.client.room.message.notice
+import net.folivo.trixnity.client.room.message.react
 import net.folivo.trixnity.client.room.message.text
 import net.folivo.trixnity.client.store.Room
 import net.folivo.trixnity.client.store.TimelineEvent
+import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.RoomId
-import net.folivo.trixnity.utils.toByteArray
 import org.intellij.markdown.flavours.commonmark.CommonMarkFlavourDescriptor
 import org.intellij.markdown.html.HtmlGenerator
 import org.intellij.markdown.parser.MarkdownParser
-import java.io.File
 import javax.inject.Inject
 
 data class ServerChannelUiState(
     val channelId: String? = null,
     val channelInfo: Room? = null,
-    val currentUserId: String? = null,
+    val currentUserInfo: UserSession? = null,
     val client: MatrixClient? = null,
     val error: String? = null,
     val atBeginning: Boolean = false,
@@ -71,7 +66,6 @@ data class ServerChannelUiState(
     val files: Map<String, Uri> = mapOf()
 )
 
-@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ChannelViewModel @Inject constructor(
     private val accountsRepository: AccountsRepository,
@@ -89,6 +83,9 @@ class ChannelViewModel @Inject constructor(
     val users
         get() = accountsRepository.users
 
+    val reactions
+        get() = messagesRepository.messageReactions
+
     val messageListState = LazyListState()
 
     init {
@@ -98,7 +95,7 @@ class ChannelViewModel @Inject constructor(
                     _uiState.update { prevState ->
                         Log.d("Channel View", it.preferences["fontSize"].toString())
                         prevState.copy(
-                            currentUserId = it.userId,
+                            currentUserInfo = it,
                             fontSize = it.preferences["fontSize"]?.toFloatOrNull()?.sp ?: 16.sp,
                             justifyText = it.preferences["justifyText"]?.toBooleanStrictOrNull() ?: true,
                             expandImages = it.preferences["expandImages"]?.toBooleanStrictOrNull() ?: true,
@@ -134,6 +131,14 @@ class ChannelViewModel @Inject constructor(
     fun updateMessage(new: String) {
         _uiState.update {
             it.copy(draftMessage = new)
+        }
+    }
+
+    fun react(eventId: EventId, reactionKey: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            accountsRepository.matrixClient?.room?.sendMessage(RoomId(uiState.value.channelId!!)) {
+                react(eventId, reactionKey)
+            }
         }
     }
 
@@ -223,7 +228,6 @@ class ChannelViewModel @Inject constructor(
         _uiState.update { it.copy(newMessages = false) }
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
     private suspend fun initializeChannelData(
         channelId: String,
         prevState: ServerChannelUiState
