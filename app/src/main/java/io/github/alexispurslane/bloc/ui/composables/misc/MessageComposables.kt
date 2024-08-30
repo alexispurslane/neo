@@ -13,12 +13,12 @@ import android.text.Layout
 import android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
 import android.text.Spanned.SPAN_MARK_MARK
 import android.text.style.AlignmentSpan
-import android.text.style.QuoteSpan
 import android.text.style.StyleSpan
 import android.text.style.TypefaceSpan
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,13 +35,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,13 +54,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
@@ -77,6 +74,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastForEach
 import androidx.core.content.FileProvider.getUriForFile
 import androidx.core.text.HtmlCompat
@@ -85,6 +83,7 @@ import com.aghajari.compose.text.AnnotatedText
 import com.aghajari.compose.text.ContentAnnotatedString
 import com.aghajari.compose.text.asAnnotatedString
 import io.github.alexispurslane.bloc.R
+import io.github.alexispurslane.bloc.data.asUser
 import io.github.alexispurslane.bloc.data.fullUserId
 import io.github.alexispurslane.bloc.data.models.User
 import io.github.alexispurslane.bloc.ui.theme.EngineeringOrange
@@ -102,7 +101,9 @@ import net.folivo.trixnity.client.store.TimelineEvent
 import net.folivo.trixnity.client.store.eventId
 import net.folivo.trixnity.client.store.relatesTo
 import net.folivo.trixnity.client.store.sender
+import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.UserId
+import net.folivo.trixnity.core.model.events.RoomEventContent
 import net.folivo.trixnity.core.model.events.UnknownEventContent
 import net.folivo.trixnity.core.model.events.m.RelatesTo
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent
@@ -133,102 +134,144 @@ fun MessagesView(
     modifier: Modifier = Modifier,
     uiState: ServerChannelUiState,
     channelInfo: Room,
-    channelViewModel: ChannelViewModel = hiltViewModel(),
+    messages: List<TimelineEvent>,
     onProfileClick: (UserId) -> Unit = { },
+    channelViewModel: ChannelViewModel = hiltViewModel(),
 ) {
-    val messages by uiState.messages!!.collectAsState()
     if (messages.isEmpty()) {
         BeginningMessage(
             modifier = modifier.fillMaxSize(),
             channelInfo = channelInfo
         )
     } else {
-        val configuration = LocalConfiguration.current
-
-        val atTop by remember { derivedStateOf { !channelViewModel.messageListState.canScrollForward } }
-        LaunchedEffect(atTop) {
-            if (atTop) {
-                channelViewModel.fetchEarlierMessages()
-            }
-        }
-
-        LaunchedEffect(uiState.messages) {
-            if (!channelViewModel.messageListState.isScrollInProgress && channelViewModel.messageListState.firstVisibleItemIndex <= 3)
-                channelViewModel.goToBottom()
-        }
-
-        LazyColumn(
-            modifier = modifier
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.Start,
-            reverseLayout = true,
-            state = channelViewModel.messageListState
+        Column(
+            modifier = modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Bottom,
+            horizontalAlignment = Alignment.Start
         ) {
-            itemsIndexed(
-                messages,
-                key = { _, it -> it.eventId.full },
-                contentType = { _, _ -> "Message" }
-            ) { index, message ->
-                Message(
-                    modifier = Modifier
-                        .padding(vertical = 5.dp),
-                    currentUserId = uiState.currentUserInfo?.fullUserId(),
-                    message = message,
-                    member = channelViewModel.users[message.sender],
-                    prevMessage = messages.getOrNull(
-                        index + 1
-                    ),
-                    onProfileClick = onProfileClick,
-                    lazyListState = channelViewModel.messageListState,
-                    index = index
-                )
+            val atTop by remember { derivedStateOf { !channelViewModel.messageListState.canScrollForward } }
+            LaunchedEffect(atTop) {
+                if (atTop) {
+                    channelViewModel.fetchEarlierMessages()
+                }
             }
-            if (uiState.atBeginning) {
-                item(
-                    contentType = "Beginning"
-                ) {
-                    BeginningMessage(
-                        modifier = Modifier.height(200.dp),
-                        channelInfo = channelInfo
+
+            LaunchedEffect(messages) {
+                if (!channelViewModel.messageListState.isScrollInProgress && channelViewModel.messageListState.firstVisibleItemIndex <= 5)
+                    channelViewModel.goToBottom()
+            }
+
+            val outbox = uiState.outbox?.collectAsState()
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth().weight(1f),
+                horizontalAlignment = Alignment.Start,
+                reverseLayout = true,
+                state = channelViewModel.messageListState
+            ) {
+                if (outbox != null) {
+                    Log.d("Message View", "outbox non null")
+                    val outboxState by outbox
+                    itemsIndexed(outboxState) { index, item ->
+                        val space = (uiState.fontSize.value * 2 + 8).dp
+                        // NOTE: only checking the outbox against the last *6* messages in the timeline is purely arbitrary, the outbox just never seems to contain a message from older than that, so why waste CPU cycles checking further?
+                        if (item != null && !messages.take(6).fastAny { it.eventId == item.eventId }) {
+                            Log.d("Message View", "displayed outbox item, $item")
+                            Row(
+                                modifier = Modifier
+                                    .padding(horizontal = 25.dp)
+                                    .fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(start = space)
+                                ) {
+                                    MessageContent(
+                                        content = Result.success(item.content as RoomEventContent),
+                                        eventId = item.eventId,
+                                        member = uiState.currentUserInfo?.asUser(),
+                                        lazyListState = channelViewModel.messageListState,
+                                        index = index,
+                                        channelUiState = uiState,
+                                        textColor = Color.DarkGray
+                                    )
+                                }
+                                Icon(
+                                    modifier = Modifier.size(24.dp),
+                                    imageVector = ImageVector.vectorResource(R.drawable.clock),
+                                    contentDescription = "Message sending...",
+                                    tint = Color.DarkGray
+                                )
+                            }
+                        }
+                    }
+                }
+
+                itemsIndexed(
+                    messages,
+                    key = { _, it -> it.eventId.full },
+                    contentType = { _, _ -> "Message" }
+                ) { index, message ->
+                    Message(
+                        modifier = Modifier
+                            .padding(vertical = 5.dp),
+                        message = message,
+                        member = channelViewModel.users[message.sender],
+                        prevMessage = messages.getOrNull(
+                            index + 1
+                        ),
+                        onProfileClick = onProfileClick,
+                        lazyListState = channelViewModel.messageListState,
+                        index = index
                     )
                 }
-            } else {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 5.dp),
-                        contentAlignment = Alignment.Center
+                if (uiState.atBeginning) {
+                    item(
+                        contentType = "Beginning"
                     ) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = Color.LightGray,
+                        BeginningMessage(
+                            modifier = Modifier.height(200.dp),
+                            channelInfo = channelInfo
                         )
+                    }
+                } else {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 5.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = Color.LightGray,
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        val visible by remember { derivedStateOf { uiState.newMessages || channelViewModel.messageListState.firstVisibleItemIndex > 50 } }
-        AnimatedVisibility(visible = visible) {
-            val coroutineScope = rememberCoroutineScope()
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .requiredHeight(30.dp)
-                    .background(MaterialTheme.colorScheme.primary)
-                    .clickable {
-                        coroutineScope.launch {
-                            channelViewModel.goToBottom()
-                        }
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "New messages available",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 12.sp
-                )
+            val visible by remember { derivedStateOf { uiState.newMessages || channelViewModel.messageListState.firstVisibleItemIndex > 50 } }
+            AnimatedVisibility(visible = visible) {
+                val coroutineScope = rememberCoroutineScope()
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .requiredHeight(30.dp)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable {
+                            coroutineScope.launch {
+                                channelViewModel.goToBottom()
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "New messages available",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 12.sp
+                    )
+                }
             }
         }
     }
@@ -247,7 +290,7 @@ fun BeginningMessage(
     ) {
         Column {
             Text(
-                "#${channelInfo.name}",
+                "#${channelInfo.name?.explicitName}",
                 fontWeight = FontWeight.Black,
                 fontSize = 40.sp,
             )
@@ -295,7 +338,6 @@ fun launchActionWithAttachment(
 @Composable
 fun Message(
     modifier: Modifier = Modifier,
-    currentUserId: String?,
     message: TimelineEvent,
     member: User?,
     prevMessage: TimelineEvent? = null,
@@ -339,132 +381,197 @@ fun Message(
                         textAlign = TextAlign.Start,
                     )
                 }
-                when (val content = message.content?.getOrNull()) {
-                    is UnknownEventContent  -> {
-                        if (content.eventType == "m.sticker") {
-                            if (channelUiState.client != null) {
-                                MatrixImage(
-                                    modifier = Modifier
-                                        .clip(MaterialTheme.shapes.large)
-                                        .size(250.dp),
-                                    client = channelUiState.client!!,
-                                    mxcUri = content.raw["url"]!!.jsonPrimitive.content
-                                )
-                            } else {
-                                MessageContent(content = "Sticker: ${content.raw["body"]!!}")
-                            }
-                        } else {
-                            MessageContent(
-                                "Unknown timeline event: ${message.content.toString()}",
-                                textColor = Color.LightGray,
-                                fontSize = 16.sp
-                            )
-                        }
+                MessageContent(
+                    content = message.content,
+                    eventId = message.eventId,
+                    member = member,
+                    channelUiState = channelUiState,
+                    lazyListState = lazyListState,
+                    index = index
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun MessageContent(
+    content: Result<RoomEventContent>?,
+    eventId: EventId?,
+    member: User?,
+    lazyListState: LazyListState?,
+    index: Int,
+    channelUiState: ServerChannelUiState,
+    channelViewModel: ChannelViewModel = hiltViewModel(),
+    textColor: Color = MaterialTheme.colorScheme.onBackground
+) {
+    when (val content = content?.getOrNull()) {
+        is UnknownEventContent  -> {
+            if (content.eventType == "m.sticker") {
+                if (channelUiState.client != null) {
+                    MatrixImage(
+                        modifier = Modifier
+                            .clip(MaterialTheme.shapes.large)
+                            .size(250.dp),
+                        client = channelUiState.client,
+                        mxcUri = content.raw["url"]!!.jsonPrimitive.content
+                    )
+                } else {
+                    MessageBody(content = "Sticker: ${content.raw["body"]!!}")
+                }
+            } else {
+                MessageBody(
+                    "Unknown timeline event: $content",
+                    textColor = Color.LightGray,
+                    fontSize = 16.sp
+                )
+            }
+        }
+        is RoomMessageEventContent -> {
+            val clipboard = LocalClipboardManager.current
+
+            var collapseState by remember { mutableStateOf(!channelUiState.expandImages) }
+
+            val context = LocalContext.current
+            val scope = rememberCoroutineScope()
+            when (content) {
+                is RoomMessageEventContent.TextBased -> {
+                    val prefix = when (content) {
+                        is RoomMessageEventContent.TextBased.Emote -> "${member?.displayName} "
+                        is RoomMessageEventContent.TextBased.Notice -> "${channelUiState.channelInfo?.name?.explicitName} notice: "
+                        else -> ""
                     }
-                    is RoomMessageEventContent -> {
-                        val clipboard = LocalClipboardManager.current
-
-                        var collapseState by remember { mutableStateOf(!channelUiState.expandImages) }
-
-                        val context = LocalContext.current
-                        val scope = rememberCoroutineScope()
-                        when (content) {
-                            is RoomMessageEventContent.TextBased -> {
-                                val prefix = when (content) {
-                                    is RoomMessageEventContent.TextBased.Emote -> "${member.displayName} "
-                                    is RoomMessageEventContent.TextBased.Notice -> "${channelUiState.channelInfo?.name?.explicitName} notice: "
-                                    else -> ""
-                                }
-                                MessageContent(
-                                    prefix + (content.formattedBody ?: content.body),
-                                    modifier = Modifier
-                                        .combinedClickable(
-                                            onLongClick = { },
-                                            onClick = { clipboard.setText(AnnotatedString(content.body)) }
-                                        )
-                                        .border(
-                                            width = 5.dp,
-                                            color = if (currentUserId != null && content.mentions?.users?.contains(
-                                                    UserId(currentUserId)
-                                                ) == true
-                                            )
-                                                Color.Yellow
-                                            else
-                                                Color.Transparent
-                                        ),
-                                    textColor = when (content) {
-                                        is RoomMessageEventContent.TextBased.Emote -> Color.Green
-                                        is RoomMessageEventContent.TextBased.Notice -> Color.Yellow
-                                        else -> MaterialTheme.colorScheme.onBackground
-                                    },
-                                    fontStyle = when (content) {
-                                        is RoomMessageEventContent.TextBased.Emote -> FontStyle.Italic
-                                        else -> null
-                                    },
-                                    fontSize = channelUiState.fontSize,
-                                    textAlign = if (channelUiState.justifyText) TextAlign.Justify else TextAlign.Start,
-                                    client = channelUiState.client,
-                                    lazyListState = lazyListState,
-                                    index = index
+                    MessageBody(
+                        prefix + (content.formattedBody ?: content.body),
+                        modifier = Modifier
+                            .combinedClickable(
+                                onLongClick = { },
+                                onClick = { clipboard.setText(AnnotatedString(content.body)) }
+                            )
+                            .border(
+                                width = 5.dp,
+                                // TODO: a lot of clients don't use the m.mentions protocol, so we need a robust way to detect mentions anyway
+                                color = if (channelUiState.currentUserInfo?.fullUserId() != null && (content.mentions?.users?.contains(
+                                        UserId(channelUiState.currentUserInfo.fullUserId())
+                                    ) == true)
                                 )
-                                if (channelUiState.client != null) {
-                                    val reactions by remember { derivedStateOf { channelViewModel.reactions[message.eventId] } }
-                                    reactions?.let {
-                                        val reactionsState by it.collectAsState()
-                                        Row(
-                                            modifier = Modifier.padding(top = 5.dp)
-                                        ) {
-                                            reactionsState.reactions.forEach { (emoji, users) ->
-                                                Log.d("Message Content", "Emoji: $emoji, users: $users, current user: ${channelUiState.currentUserInfo!!.fullUserId()}")
-                                                Row(
-                                                    modifier = Modifier
-                                                        .padding(end = 5.dp)
-                                                        .clip(MaterialTheme.shapes.small)
-                                                        .background(
-                                                            color = if (users.contains(UserId(channelUiState.currentUserInfo!!.fullUserId())))
-                                                                EngineeringOrange
-                                                            else
-                                                                Color.DarkGray
-                                                        )
-                                                        .padding(start = 4.dp, end = 4.dp)
-                                                        .clickable {
-                                                            channelViewModel.react(message.eventId, emoji)
-                                                        },
-                                                ) {
-                                                    if (emoji.startsWith("mxc")) {
-                                                        Log.d("Message Content", emoji)
-                                                        val resources = LocalContext.current.resources
-                                                        MatrixImage(
-                                                            modifier = Modifier.size(
-                                                                (resources.displayMetrics.density * 13.sp.value * 0.6).dp
+                                    Color.Yellow
+                                else
+                                    Color.Transparent
+                            ),
+                        textColor = when (content) {
+                            is RoomMessageEventContent.TextBased.Emote -> Color.Green
+                            is RoomMessageEventContent.TextBased.Notice -> Color.Yellow
+                            else -> textColor
+                        },
+                        fontStyle = when (content) {
+                            is RoomMessageEventContent.TextBased.Emote -> FontStyle.Italic
+                            else -> null
+                        },
+                        fontSize = channelUiState.fontSize,
+                        textAlign = if (channelUiState.justifyText) TextAlign.Justify else TextAlign.Start,
+                        client = channelUiState.client,
+                        lazyListState = lazyListState,
+                        index = index
+                    )
+                    if (channelUiState.client != null) {
+                        val reactions by remember { derivedStateOf { channelViewModel.reactions[eventId] } }
+                        reactions?.let {
+                            val reactionsState by it.collectAsState()
+                            Row(
+                                modifier = Modifier.padding(top = 5.dp)
+                            ) {
+                                reactionsState.reactions.forEach { (emoji, users) ->
+                                    Row(
+                                        modifier = Modifier
+                                            .padding(end = 5.dp)
+                                            .clip(MaterialTheme.shapes.small)
+                                            .background(
+                                                color = if (users.contains(UserId(channelUiState.currentUserInfo!!.fullUserId())))
+                                                    EngineeringOrange
+                                                else
+                                                    Color.DarkGray
+                                            )
+                                            .padding(start = 4.dp, end = 4.dp)
+                                            .clickable {
+                                                channelViewModel.react(eventId!!, emoji)
+                                            },
+                                    ) {
+                                        if (emoji.startsWith("mxc")) {
+                                            val resources = LocalContext.current.resources
+                                            MatrixImage(
+                                                modifier = Modifier
+                                                    .size(
+                                                        (resources.displayMetrics.density * 13.sp.value * 0.6).dp
 
-                                                            )
-                                                                .align(Alignment.CenterVertically),
-                                                            client = channelUiState.client!!,
-                                                            mxcUri = emoji
-                                                        )
-                                                    } else {
-                                                        Text(emoji, fontSize = 13.sp)
-                                                    }
-
-                                                    Text(
-                                                        modifier = Modifier.padding(start = 5.dp),
-                                                        text = users.size.toString(),
-                                                        fontSize = 13.sp,
-                                                        fontFamily = FontFamily.Monospace
                                                     )
-                                                }
-                                            }
+                                                    .align(Alignment.CenterVertically),
+                                                client = channelUiState.client,
+                                                mxcUri = emoji
+                                            )
+                                        } else {
+                                            Text(emoji, fontSize = 13.sp)
                                         }
+
+                                        Text(
+                                            modifier = Modifier.padding(start = 5.dp),
+                                            text = users.size.toString(),
+                                            fontSize = 13.sp,
+                                            fontFamily = FontFamily.Monospace
+                                        )
                                     }
                                 }
                             }
-                            is RoomMessageEventContent.FileBased.File -> {
-                                if (content.url != null && channelUiState.client != null) {
-                                    TextButton(onClick = {
-                                        launchActionWithAttachment(scope, context, channelUiState.client!!, content.url!!) {
+                        }
+                    }
+                }
+                is RoomMessageEventContent.FileBased.File -> {
+                    if (content.url != null && channelUiState.client != null) {
+                        TextButton(onClick = {
+                            launchActionWithAttachment(scope, context, channelUiState.client, content.url!!) {
+                                val intent =
+                                    Intent(Intent.ACTION_CREATE_DOCUMENT)
+                                intent.setDataAndType(
+                                    it,
+                                    content.info?.mimeType
+                                )
+                                intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                context.startActivity(intent)
+                            }
+                        }) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 5.dp)
+                                    .size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = ImageVector.vectorResource(R.drawable.download),
+                                    contentDescription = "Download file"
+                                )
+                            }
+
+                            Text(text = content.body)
+                        }
+                    }
+                }
+                is RoomMessageEventContent.FileBased.Image -> {
+                    if (content.url != null && channelUiState.client != null) {
+                        if (!collapseState) {
+                            MatrixImage(
+                                modifier = Modifier
+                                    .padding(vertical = 5.dp)
+                                    .clip(MaterialTheme.shapes.large)
+                                    .height(300.dp)
+                                    .clickable {
+                                        launchActionWithAttachment(
+                                            scope,
+                                            context,
+                                            channelUiState.client,
+                                            content.url!!
+                                        ) {
                                             val intent =
-                                                Intent(Intent.ACTION_CREATE_DOCUMENT)
+                                                Intent(Intent.ACTION_VIEW)
                                             intent.setDataAndType(
                                                 it,
                                                 content.info?.mimeType
@@ -472,78 +579,35 @@ fun Message(
                                             intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                             context.startActivity(intent)
                                         }
-                                    }) {
-                                        Box(
-                                            modifier = Modifier
-                                                .padding(horizontal = 5.dp)
-                                                .size(24.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = ImageVector.vectorResource(R.drawable.download),
-                                                contentDescription = "Download file"
-                                            )
-                                        }
-
-                                        Text(text = content.body)
-                                    }
-                                }
-                            }
-                            is RoomMessageEventContent.FileBased.Image -> {
-                                if (content.url != null && channelUiState.client != null) {
-                                    if (!collapseState) {
-                                        MatrixImage(
-                                            modifier = Modifier
-                                                .padding(vertical = 5.dp)
-                                                .clip(MaterialTheme.shapes.large)
-                                                .height(300.dp)
-                                                .clickable {
-                                                    launchActionWithAttachment(
-                                                        scope,
-                                                        context,
-                                                        channelUiState.client!!,
-                                                        content.url!!
-                                                    ) {
-                                                        val intent =
-                                                            Intent(Intent.ACTION_VIEW)
-                                                        intent.setDataAndType(
-                                                            it,
-                                                            content.info?.mimeType
-                                                        )
-                                                        intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                                        context.startActivity(intent)
-                                                    }
-                                                },
-                                            mxcUri = content.url!!,
-                                            client = channelUiState.client!!,
-                                            shouldFill = false
-                                        )
-                                    }
-                                    TextButton(
-                                        modifier = Modifier.padding(start = 0.dp),
-                                        onClick = { collapseState = !collapseState }
-                                    ) {
-                                        Text(
-                                            "${if (collapseState) "Expand" else "Collapse"} attachments",
-                                            fontWeight = FontWeight.Black,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-                            }
-
-                            else -> {}
+                                    },
+                                mxcUri = content.url!!,
+                                client = channelUiState.client,
+                                shouldFill = false
+                            )
+                        }
+                        TextButton(
+                            modifier = Modifier.padding(start = 0.dp),
+                            onClick = { collapseState = !collapseState }
+                        ) {
+                            Text(
+                                "${if (collapseState) "Expand" else "Collapse"} attachments",
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
-
-                    else -> {
-                        MessageContent(
-                            "Unknown timeline event: ${message.content.toString()}",
-                            textColor = Color.LightGray,
-                            fontSize = 16.sp
-                        )
-                    }
                 }
+
+                else -> {}
             }
+        }
+
+        else -> {
+            MessageBody(
+                "Unknown timeline event: ${content.toString()}",
+                textColor = Color.LightGray,
+                fontSize = 16.sp
+            )
         }
     }
 }
@@ -664,7 +728,7 @@ class AnnotationContentHandler(
 class AnnotationSpan(val key: String, val value: String)
 
 @Composable
-fun MessageContent(
+fun MessageBody(
     content: String,
     modifier: Modifier = Modifier,
     textColor: Color = MaterialTheme.colorScheme.onBackground,
@@ -685,10 +749,19 @@ fun MessageContent(
         if (visible == true) {
             launch(Dispatchers.IO) {
                 // NOTE: keep this up to date with the real `ContentHandlerReplacementTag` variable
-                val stringToParse = "<ContentHandlerReplacementTag />$content"
+                val cleanedHtmlString =
+                    content
+                        .replace(Regex("</?body>"), "") // remove default wrapping body tag
+                        .replace(Regex("(^<p>|</p>$)"), "") // remove default wrapping paragraph
+                        .let {
+                            if (it.lines().size > 1) it
+                                .replace(Regex("(^|\n)(.*)(\n|$)"), "<p>$2</p>") // re-add paragraphs only where desirable
+                            else it
+                        }
+                val stringToParse = "<ContentHandlerReplacementTag />$cleanedHtmlString"
                 val spanned = HtmlCompat.fromHtml(
                     stringToParse,
-                    HtmlCompat.FROM_HTML_MODE_COMPACT,
+                    HtmlCompat.FROM_HTML_MODE_LEGACY,
                     if (client != null)
                         ImageGetter { source ->
                             if (source!!.startsWith("mxc", ignoreCase = true)) {

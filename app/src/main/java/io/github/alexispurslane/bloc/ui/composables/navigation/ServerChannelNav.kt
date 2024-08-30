@@ -141,11 +141,12 @@ fun ServerChannelNav(
                         onClick = {
                             val last = uiState.lastServerChannels[space.space.roomId.full]
 
+                            homeScreenViewModel.selectChannel(
+                                space.space.roomId.full,
+                                last
+                            )
+
                             if (last != null) {
-                                homeScreenViewModel.selectChannel(
-                                    space.space.roomId.full,
-                                    last
-                                )
                                 onNavigate(
                                     "channel",
                                     space.space.roomId.full,

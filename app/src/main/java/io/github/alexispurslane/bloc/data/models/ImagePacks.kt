@@ -2,6 +2,7 @@ package io.github.alexispurslane.bloc.data.models
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.folivo.trixnity.core.model.events.EphemeralEventContent
 import net.folivo.trixnity.core.model.events.StateEventContent
 import net.folivo.trixnity.core.model.events.m.room.ImageInfo
 
@@ -9,7 +10,7 @@ import net.folivo.trixnity.core.model.events.m.room.ImageInfo
 data class ImagePackEventContent(
     @SerialName("images") val images: Map<String, ImageObject>,
     @SerialName("pack") val pack: PackObject? = null
-)
+) : EphemeralEventContent
 
 @Serializable
 data class PackObject(

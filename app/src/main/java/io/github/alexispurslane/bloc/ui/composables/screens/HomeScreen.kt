@@ -32,7 +32,7 @@ fun HomeScreen(
     val navController = rememberNavController()
     val uiState by homeScreenViewModel.uiState.collectAsState()
 
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Open)
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     DismissibleNavigationDrawer(
         drawerState = drawerState,
@@ -61,7 +61,7 @@ fun HomeScreen(
             NavHost(navController, startDestination = "loading") {
                 composable("loading") {
                     val rooms by homeScreenViewModel.rooms.collectAsState()
-                    val loadedUserInfo by remember { derivedStateOf { uiState.userInfo != null && rooms.isNotEmpty() } }
+                    val loadedUserInfo by remember { derivedStateOf { uiState.userInfo != null } }
                     LaunchedEffect(loadedUserInfo) {
                         Log.d("Home Screen Nav", "Loaded user info. ${uiState.currentServerId}")
                         if (uiState.currentServerId != null) {

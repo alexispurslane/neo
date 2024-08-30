@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.alexispurslane.bloc.data.models.ImagePackEventContent
 import io.github.alexispurslane.bloc.data.models.User
 import io.ktor.http.Url
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import net.folivo.trixnity.client.MatrixClient
+import net.folivo.trixnity.client.createDefaultTrixnityModules
 import net.folivo.trixnity.client.fromStore
 import net.folivo.trixnity.client.login
 import net.folivo.trixnity.client.media.okio.OkioMediaStore
@@ -35,7 +37,13 @@ import net.folivo.trixnity.clientserverapi.model.authentication.IdentifierType
 import net.folivo.trixnity.core.model.RoomId
 import net.folivo.trixnity.core.model.UserId
 import net.folivo.trixnity.core.model.events.m.Presence
+import net.folivo.trixnity.core.serialization.events.DefaultEventContentSerializerMappings
+import net.folivo.trixnity.core.serialization.events.EventContentSerializerMapping
+import net.folivo.trixnity.core.serialization.events.EventContentSerializerMappings
+import net.folivo.trixnity.core.serialization.events.createEventContentSerializerMappings
+import net.folivo.trixnity.core.serialization.events.ephemeralOf
 import okio.Path.Companion.toPath
+import org.koin.dsl.module
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -50,6 +58,15 @@ data class UserSession(
 
 fun UserSession.fullUserId(): String {
     return "@$userId:${instanceApiUrl.replace("https://", "")}"
+}
+
+fun UserSession.asUser(): User {
+    return User(
+        userId = UserId(userId),
+        avatarUrl = avatarUrl,
+        displayName = displayName,
+        presence = Presence.OFFLINE
+    )
 }
 
 @OptIn(DelicateCoroutinesApi::class)
@@ -75,6 +92,14 @@ class AccountsRepository @Inject constructor(
     private var _userSessionFlow: MutableStateFlow<UserSession?> = MutableStateFlow(null)
     val userSessionFlow: StateFlow<UserSession?> = _userSessionFlow.asStateFlow()
 
+    val customMappings = createEventContentSerializerMappings {
+        ephemeralOf<ImagePackEventContent>("m.image_pack")
+    }
+    val customMappingsModule = module {
+        single<EventContentSerializerMappings> {
+            DefaultEventContentSerializerMappings + customMappings
+        }
+    }
 
     init {
         GlobalScope.launch(Dispatchers.IO) {
@@ -125,7 +150,9 @@ class AccountsRepository @Inject constructor(
             mediaStore = platformMediaStore,
             password = password,
             initialDeviceDisplayName = "Bloc"
-        ).getOrElse { return@login Result.failure(it) }
+        ) {
+            modules = createDefaultTrixnityModules() + customMappingsModule
+        }.getOrElse { return@login Result.failure(it) }
 
         Log.d("Account Repository", "Login succeeded")
 

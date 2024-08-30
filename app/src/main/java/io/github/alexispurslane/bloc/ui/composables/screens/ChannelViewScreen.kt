@@ -6,15 +6,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -53,6 +58,7 @@ import io.github.alexispurslane.bloc.ui.composables.misc.launchActionWithAttachm
 import io.github.alexispurslane.bloc.ui.composables.navigation.ChannelTopBar
 import io.github.alexispurslane.bloc.ui.composables.navigation.MessageBar
 import io.github.alexispurslane.bloc.viewmodels.ChannelViewModel
+import net.folivo.trixnity.client.room
 
 @Composable
 fun ChannelViewScreen(
@@ -73,10 +79,12 @@ fun ChannelViewScreen(
                     val error = uiState.error!!.split(':')
                     ErrorScreen(title = error[0], message = error[1])
                 } else {
+                    val messages by uiState.messages!!.collectAsState()
                     MessagesView(
                         modifier = Modifier.padding(it),
                         uiState,
                         uiState.channelInfo!!,
+                        messages,
                         onProfileClick = { userId ->
                             navController.navigate("profile/$userId")
                         }
@@ -84,9 +92,7 @@ fun ChannelViewScreen(
                 }
             },
             bottomBar = {
-                val draftMessage by remember {
-                    derivedStateOf { uiState.draftMessage }
-                }
+                val draftMessage by uiState.draftMessage.collectAsState()
                 var currentEmojiCompletions by remember { mutableStateOf(listOf<String>()) }
 
                 LaunchedEffect(draftMessage) {
@@ -152,7 +158,7 @@ fun ChannelViewScreen(
 
                     MessageBar(
                         uiState.channelInfo?.name?.explicitName ?: "?",
-                        uiState.draftMessage,
+                        draftMessage,
                         channelViewModel::updateMessage,
                         channelViewModel::sendMessage
                     )

@@ -16,10 +16,11 @@ import io.github.alexispurslane.bloc.data.AccountsRepository
 import io.github.alexispurslane.bloc.data.MessagesRepository
 import io.github.alexispurslane.bloc.data.RoomsRepository
 import io.github.alexispurslane.bloc.data.UserSession
+import io.github.alexispurslane.bloc.data.flattenFlow
 import io.ktor.http.ContentType
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +40,7 @@ import net.folivo.trixnity.client.room.message.notice
 import net.folivo.trixnity.client.room.message.react
 import net.folivo.trixnity.client.room.message.text
 import net.folivo.trixnity.client.store.Room
+import net.folivo.trixnity.client.store.RoomOutboxMessage
 import net.folivo.trixnity.client.store.TimelineEvent
 import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.RoomId
@@ -55,17 +57,19 @@ data class ServerChannelUiState(
     val error: String? = null,
     val atBeginning: Boolean = false,
     val newMessages: Boolean = false,
-    val draftMessage: String = "",
+    val draftMessage: MutableStateFlow<String> = MutableStateFlow(""),
     val isSendError: Boolean = false,
     val sendErrorTitle: String = "",
     val sendErrorText: String = "",
     val messages: StateFlow<List<TimelineEvent>>? = null,
+    val outbox: StateFlow<List<RoomOutboxMessage<*>?>>? = null,
     val fontSize: TextUnit = 16.sp,
     val justifyText: Boolean = true,
     val expandImages: Boolean = true,
     val files: Map<String, Uri> = mapOf()
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ChannelViewModel @Inject constructor(
     private val accountsRepository: AccountsRepository,
@@ -105,13 +109,26 @@ class ChannelViewModel @Inject constructor(
             }
         }
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             savedStateHandle.getStateFlow("channelId", null)
                 .collectLatest { channelId: String? ->
                     if (channelId != null) {
                         Log.d("Channel View", "channel visited: $channelId")
-                        _uiState.update {
-                            initializeChannelData(channelId, it)
+                        launch {
+                            _uiState.update {
+                                initializeChannelData(channelId, it)
+                            }
+                        }
+
+                        launch {
+                            accountsRepository.matrixClient?.room!!.getOutbox().collectLatest {
+                                val messagesForRoom = it.values.filter { it.first()?.roomId == RoomId(channelId) }
+                                _uiState.update {
+                                    it.copy(
+                                        outbox = messagesForRoom.flattenFlow().stateIn(viewModelScope)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -128,10 +145,34 @@ class ChannelViewModel @Inject constructor(
         }
     }
 
+
+    private suspend fun initializeChannelData(
+        channelId: String,
+        prevState: ServerChannelUiState
+    ): ServerChannelUiState {
+        val channelInfo = roomsRepository.roomDirectory.value[RoomId(channelId)]
+            ?: return prevState.copy(error = "Uh oh! Cannot fetch channel info")
+
+        Log.d("Channel View", "got channel info: $channelInfo")
+
+        val messages = messagesRepository.fetchChannelMessages(
+            channelId,
+            limit = 50
+        ) ?: return prevState.copy(error = "Uh oh! Cannot fetch messages for this channel")
+
+        Log.d("Channel View", "got channel messages: ${messages.first().size}")
+
+        accountsRepository.prefetchUsersForChannel(RoomId(channelId))
+
+        return prevState.copy(
+            channelId = channelId,
+            channelInfo = channelInfo,
+            messages = messages.stateIn(viewModelScope),
+        )
+    }
+
     fun updateMessage(new: String) {
-        _uiState.update {
-            it.copy(draftMessage = new)
-        }
+        _uiState.value.draftMessage.update { new }
     }
 
     fun react(eventId: EventId, reactionKey: String) {
@@ -143,71 +184,71 @@ class ChannelViewModel @Inject constructor(
     }
 
     fun sendMessage() {
-        viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update {
-                if (it.channelId != null) {
-                    if (it.draftMessage.isNotBlank()) {
-                        accountsRepository.matrixClient?.room?.sendMessage(RoomId(it.channelId)) {
-                            val tree = parser.buildMarkdownTreeFromString(it.draftMessage)
-                            val html = HtmlGenerator(it.draftMessage, tree, CommonMarkFlavourDescriptor()).generateHtml()
-                            val command = if (it.draftMessage.startsWith('/'))
-                                it.draftMessage.takeWhile { it != ' ' }
-                            else null
-                            when (command) {
-                                "/me" -> emote(formattedBody = html, format = "org.matrix.custom.html", body = it.draftMessage.removePrefix(command))
-                                "/notice" -> notice(formattedBody = html, format = "org.matrix.custom.html", body = it.draftMessage.removePrefix(command))
-                                else -> text(formattedBody = html, format = "org.matrix.custom.html", body = it.draftMessage)
-                            }
-                        }
-                    }
-                    it.files.forEach { (name, uri) ->
-                        context.contentResolver.openInputStream(uri)?.buffered()?.use { it.readBytes() }?.let { bytes ->
+        _uiState.update {
+            it.draftMessage.update { draftMessage ->
+                viewModelScope.launch(Dispatchers.IO) {
+                    if (it.channelId != null) {
+                        if (draftMessage.isNotBlank()) {
                             accountsRepository.matrixClient?.room?.sendMessage(RoomId(it.channelId)) {
-                                val mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.split(".").last())
-                                if (mime?.startsWith("image/") == true) {
-                                    image(
-                                        body = name,
-                                        fileName = name,
-                                        image = flowOf(bytes),
-                                        type = when (mime.split("/").last()) {
-                                            "png" -> ContentType.Image.PNG
-                                            "jpeg" -> ContentType.Image.JPEG
-                                            "gif" -> ContentType.Image.GIF
-                                            "svg" -> ContentType.Image.SVG
-                                            else -> ContentType.Image.Any
-                                        }
-                                    )
-                                } else if (mime?.startsWith("audio/") == true) {
-                                    audio(
-                                        body = name,
-                                        fileName = name,
-                                        audio = flowOf(bytes),
-                                        type = when (mime.split("/").last()) {
-                                            "ogg" -> ContentType.Audio.OGG
-                                            "mp4" -> ContentType.Audio.MP4
-                                            "mpeg" -> ContentType.Audio.MPEG
-                                            else -> ContentType.Audio.Any
-                                        }
-                                    )
-                                } else {
-                                    file(
-                                        body = name,
-                                        fileName = name,
-                                        file = flowOf(bytes)
-                                    )
+                                val tree = parser.buildMarkdownTreeFromString(draftMessage)
+                                val html = HtmlGenerator(draftMessage, tree, CommonMarkFlavourDescriptor()).generateHtml()
+                                val command = if (draftMessage.startsWith('/'))
+                                    draftMessage.takeWhile { it != ' ' }
+                                else null
+                                when (command) {
+                                    "/me" -> emote(formattedBody = html, format = "org.matrix.custom.html", body = draftMessage.removePrefix(command))
+                                    "/notice" -> notice(formattedBody = html, format = "org.matrix.custom.html", body = draftMessage.removePrefix(command))
+                                    else -> text(formattedBody = html, format = "org.matrix.custom.html", body = draftMessage)
                                 }
                             }
-                            Log.d("Channel View", "sent file ${uri.lastPathSegment?.split("/")?.last()}, url $uri, byte count: ${bytes.size}")
+                        }
+                        it.files.forEach { (name, uri) ->
+                            context.contentResolver.openInputStream(uri)?.buffered()?.use { it.readBytes() }?.let { bytes ->
+                                accountsRepository.matrixClient?.room?.sendMessage(RoomId(it.channelId)) {
+                                    val mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.split(".").last())
+                                    if (mime?.startsWith("image/") == true) {
+                                        image(
+                                            body = name,
+                                            fileName = name,
+                                            image = flowOf(bytes),
+                                            type = when (mime.split("/").last()) {
+                                                "png" -> ContentType.Image.PNG
+                                                "jpeg" -> ContentType.Image.JPEG
+                                                "gif" -> ContentType.Image.GIF
+                                                "svg" -> ContentType.Image.SVG
+                                                else -> ContentType.Image.Any
+                                            }
+                                        )
+                                    } else if (mime?.startsWith("audio/") == true) {
+                                        audio(
+                                            body = name,
+                                            fileName = name,
+                                            audio = flowOf(bytes),
+                                            type = when (mime.split("/").last()) {
+                                                "ogg" -> ContentType.Audio.OGG
+                                                "mp4" -> ContentType.Audio.MP4
+                                                "mpeg" -> ContentType.Audio.MPEG
+                                                else -> ContentType.Audio.Any
+                                            }
+                                        )
+                                    } else {
+                                        file(
+                                            body = name,
+                                            fileName = name,
+                                            file = flowOf(bytes)
+                                        )
+                                    }
+                                }
+                                Log.d("Channel View", "sent file ${uri.lastPathSegment?.split("/")?.last()}, url $uri, byte count: ${bytes.size}")
+                            }
                         }
                     }
-                    it.copy(
-                        draftMessage = "",
-                        files = mutableMapOf()
-                    )
-                } else {
-                    it
                 }
+                ""
             }
+            it.copy(
+                files = mutableMapOf()
+            )
         }
     }
 
@@ -225,32 +266,6 @@ class ChannelViewModel @Inject constructor(
 
     suspend fun goToBottom() {
         messageListState.scrollToItem(0)
-        _uiState.update { it.copy(newMessages = false) }
-    }
-
-    private suspend fun initializeChannelData(
-        channelId: String,
-        prevState: ServerChannelUiState
-    ): ServerChannelUiState {
-        val channelInfo = roomsRepository.roomDirectory.value[RoomId(channelId)]
-            ?: return prevState.copy(error = "Uh oh! Cannot fetch channel info")
-
-        Log.d("Channel View", "got channel info: $channelInfo")
-
-        val messages = messagesRepository.fetchChannelMessages(
-                channelId,
-                limit = 50
-            ) ?: return prevState.copy(error = "Uh oh! Cannot fetch messages for this channel")
-
-        Log.d("Channel View", "got channel messages: ${messages.first().size}")
-
-        accountsRepository.prefetchUsersForChannel(RoomId(channelId))
-
-        return prevState.copy(
-            channelId = channelId,
-            channelInfo = channelInfo,
-            messages = messages.stateIn(viewModelScope)
-        )
     }
 
     suspend fun fetchEarlierMessages() {
