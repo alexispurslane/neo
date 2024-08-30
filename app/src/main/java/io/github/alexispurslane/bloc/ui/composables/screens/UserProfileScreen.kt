@@ -62,7 +62,7 @@ fun UserProfileScreen(
 
     if (uiState.userProfile != null) {
         Column(
-            modifier = Modifier.imePadding()
+            modifier = Modifier.statusBarsPadding().navigationBarsPadding()
         ) {
             UserCard(userProfile = uiState.userProfile!!, client = uiState.client)
             Column(
@@ -111,7 +111,7 @@ fun UserProfileScreen(
                                             Text(text = "${size.value}")
                                         },
                                         onClick = {
-                                            userProfileViewModel.fontSizeChange(size)
+                                            userProfileViewModel.setPreference("fontSize", size.value)
                                             expandedState = false
                                         }
                                     )
@@ -125,7 +125,25 @@ fun UserProfileScreen(
                         comment = "In case ragged edges bother you"
                     ) {
                         Switch(checked = uiState.preferences["justifyText"]?.toBooleanStrictOrNull() ?: true, onCheckedChange = {
-                            userProfileViewModel.setMessageTextJustification(it)
+                            userProfileViewModel.setPreference("justifyText", it)
+                        })
+                    }
+
+                    SettingsRow(
+                        title = "AMOLED Theme",
+                        comment = "Pure black backgrounds"
+                    ) {
+                        Switch(checked = uiState.preferences["isAMOLED"]?.toBooleanStrictOrNull() ?: false, onCheckedChange = {
+                            userProfileViewModel.setPreference("isAMOLED", it)
+                        })
+                    }
+
+                    SettingsRow(
+                        title = "Force Light Theme",
+                        comment = "Overrides the default behavior of following your system theme."
+                    ) {
+                        Switch(checked = uiState.preferences["isLightOverride"]?.toBooleanStrictOrNull() ?: false, onCheckedChange = {
+                            userProfileViewModel.setPreference("isLightOverride", it)
                         })
                     }
 
@@ -147,7 +165,7 @@ fun UserProfileScreen(
                         comment = "Whether image attachments are expanded or collapsed by default"
                     ) {
                         Switch(checked = uiState.preferences["expandImages"]?.toBooleanStrictOrNull() ?: true, onCheckedChange = {
-                            userProfileViewModel.setExpandImages(it)
+                            userProfileViewModel.setPreference("expandImages", it)
                         })
                     }
 

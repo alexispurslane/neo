@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -68,6 +69,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.github.alexispurslane.bloc.R
 import io.github.alexispurslane.bloc.autofill
+import io.github.alexispurslane.bloc.ui.composables.misc.ErrorDialog
 import io.github.alexispurslane.bloc.ui.theme.EngineeringOrange
 import io.github.alexispurslane.bloc.viewmodels.LoginViewModel
 import kotlinx.coroutines.launch
@@ -114,47 +116,6 @@ fun LoginScreen(
             uiState.loginErrorTitle,
             uiState.loginErrorBody
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ErrorDialog(
-    onDismiss: () -> Unit,
-    title: String,
-    body: String
-) {
-    AlertDialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier
-                .wrapContentWidth()
-                .wrapContentHeight(),
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = AlertDialogDefaults.TonalElevation
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Icon(
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .size(100.dp)
-                        .padding(vertical = 24.dp),
-                    imageVector = Icons.Filled.Warning,
-                    contentDescription = "Login Error Dialog"
-                )
-                Text(title, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = body,
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                TextButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text("Groovy!")
-                }
-            }
-        }
     }
 }
 

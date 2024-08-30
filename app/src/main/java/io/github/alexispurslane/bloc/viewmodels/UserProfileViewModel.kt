@@ -130,26 +130,10 @@ class UserProfileViewModel @Inject constructor(
             }
         }
 
-    fun fontSizeChange(size: TextUnit) {
+    fun setPreference(key: String, value: Any) {
         viewModelScope.launch {
             accountsRepository.savePreferences(
-                mapOf("fontSize" to size.value.toString())
-            )
-        }
-    }
-
-    fun setMessageTextJustification(it: Boolean) {
-        viewModelScope.launch {
-            accountsRepository.savePreferences(
-                mapOf("justifyText" to it.toString())
-            )
-        }
-    }
-
-    fun setExpandImages(it: Boolean) {
-        viewModelScope.launch {
-            accountsRepository.savePreferences(
-                mapOf("expandImages" to it.toString())
+                mapOf(key to value.toString())
             )
         }
     }

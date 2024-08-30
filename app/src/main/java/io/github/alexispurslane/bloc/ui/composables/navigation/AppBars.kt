@@ -42,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -90,7 +91,7 @@ fun MessageBar(
         }
     }
     BottomAppBar(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.Transparent,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically
@@ -116,7 +117,7 @@ fun MessageBar(
                 onValueChange = onValueChange,
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Sentences,
-                    autoCorrect = true,
+                    autoCorrectEnabled = true,
                     keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Default
                 ),

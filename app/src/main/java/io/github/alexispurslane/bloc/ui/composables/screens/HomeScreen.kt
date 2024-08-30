@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.DismissibleDrawerSheet
 import androidx.compose.material3.DismissibleNavigationDrawer
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,7 +38,8 @@ fun HomeScreen(
     DismissibleNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            DismissibleDrawerSheet {
+            DismissibleDrawerSheet(
+            ) {
                 ServerChannelNav(
                     onNavigate = { type, serverId, channelId ->
                         when (type) {

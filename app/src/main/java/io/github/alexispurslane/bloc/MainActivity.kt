@@ -11,21 +11,30 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.AndroidEntryPoint
+import io.github.alexispurslane.bloc.data.local.DataStoreModule
+import io.github.alexispurslane.bloc.data.local.USER_PREFERENCES
 import io.github.alexispurslane.bloc.ui.theme.BlocTheme
 import io.github.alexispurslane.service.Actions
 import io.github.alexispurslane.service.NotificationService
 import io.github.alexispurslane.service.ServiceState
 import io.github.alexispurslane.service.getServiceState
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>,
@@ -45,6 +54,9 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    @Inject
+    lateinit var settings: DataStore<Preferences>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,7 +103,11 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            BlocTheme {
+            val settings by settings.data.collectAsState(initial = null)
+            BlocTheme(
+                isLightOverride = settings?.get(stringPreferencesKey("isLightOverride"))?.toBooleanStrictOrNull() ?: false,
+                isAMOLED = settings?.get(stringPreferencesKey("isAMOLED"))?.toBooleanStrictOrNull() ?: false
+            ) {
                 // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),

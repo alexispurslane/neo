@@ -53,6 +53,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import io.github.alexispurslane.bloc.LoadingScreen
 import io.github.alexispurslane.bloc.R
+import io.github.alexispurslane.bloc.ui.composables.misc.ErrorDialog
 import io.github.alexispurslane.bloc.ui.composables.misc.MessagesView
 import io.github.alexispurslane.bloc.ui.composables.misc.launchActionWithAttachment
 import io.github.alexispurslane.bloc.ui.composables.navigation.ChannelTopBar
