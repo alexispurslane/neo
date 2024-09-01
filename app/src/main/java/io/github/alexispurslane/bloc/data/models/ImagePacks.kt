@@ -9,8 +9,9 @@ import net.folivo.trixnity.core.model.events.m.room.ImageInfo
 @Serializable
 data class ImagePackEventContent(
     @SerialName("images") val images: Map<String, ImageObject>,
-    @SerialName("pack") val pack: PackObject? = null
-) : EphemeralEventContent
+    @SerialName("pack") val pack: PackObject? = null,
+    override val externalUrl: String? = null
+) : StateEventContent
 
 @Serializable
 data class PackObject(

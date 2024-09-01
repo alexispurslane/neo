@@ -138,15 +138,6 @@ fun UserProfileScreen(
                         })
                     }
 
-                    SettingsRow(
-                        title = "Force Light Theme",
-                        comment = "Overrides the default behavior of following your system theme."
-                    ) {
-                        Switch(checked = uiState.preferences["isLightOverride"]?.toBooleanStrictOrNull() ?: false, onCheckedChange = {
-                            userProfileViewModel.setPreference("isLightOverride", it)
-                        })
-                    }
-
                     Spacer(modifier = Modifier.height(20.dp))
 
                     Text(

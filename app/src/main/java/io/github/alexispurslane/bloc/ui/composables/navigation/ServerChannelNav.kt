@@ -350,9 +350,8 @@ fun ChannelRow(
             overflow = TextOverflow.Ellipsis
         )
         // FIXME: This doesn't work
-        Log.d("Server Channel Nav", "${channel.name?.explicitName}:")
         if (channel.unreadMessageCount > 0) {
-            Box(modifier = Modifier.weight(1f).size(20.dp).clip(CircleShape).background(EngineeringOrange)) {
+            Box(modifier = Modifier.size(20.dp).weight(1f).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) {
                 Text(
                     text = channel.unreadMessageCount.toString(),
                     fontSize = 11.sp

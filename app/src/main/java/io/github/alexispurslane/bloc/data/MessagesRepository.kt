@@ -26,8 +26,11 @@ import net.folivo.trixnity.client.store.eventId
 import net.folivo.trixnity.client.store.sender
 import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.RoomId
+import net.folivo.trixnity.core.model.UserId
+import net.folivo.trixnity.core.model.events.UnknownEventContent
 import net.folivo.trixnity.core.model.events.m.ReactionEventContent
 import net.folivo.trixnity.core.model.events.m.RelatesTo
+import net.folivo.trixnity.core.model.events.m.room.RedactionEventContent
 import net.folivo.trixnity.core.model.events.m.room.RoomMessageEventContent
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -43,17 +46,22 @@ class MessagesRepository @Inject constructor(
     val channelMessages
         get(): Map<RoomId, Flow<List<TimelineEvent>>> = _channelMessages
 
-    val messageReactions: SnapshotStateMap<EventId, MutableStateFlow<TimelineEventAggregation.Reaction>> = mutableStateMapOf()
+    val messageReactions: SnapshotStateMap<EventId, MutableStateFlow<Map<String, Map<EventId, UserId>>>> = mutableStateMapOf()
 
     private val USER_MENTION_REGEX by lazy { Regex("@([a-z0-9._=\\-/+]+):(?=.{1,255}\$)[0-9A-Za-z](?:(?:[0-9A-Za-z]|-){0,61}[0-9A-Za-z])?(?:\\.[0-9A-Za-z](?:(?:[0-9A-Za-z]|-){0,61}[0-9A-Za-z])?)*\\.?") }
 
     private fun treatMessages(messages: List<TimelineEvent>): List<TimelineEvent> {
         return messages.fold<TimelineEvent, MutableMap<String, TimelineEvent>>(mutableMapOf()) { acc, message ->
             val content = message.content?.getOrNull()
+            Log.d("Message Repository", message.toString())
             when (content) {
                 is RoomMessageEventContent -> {
                     acc[message.eventId.full] = message
-                    acc
+                }
+                is UnknownEventContent -> {
+                    if (content.eventType == "m.sticker") {
+                        acc[message.eventId.full] = message
+                    }
                 }
 
                 is ReactionEventContent -> {
@@ -61,30 +69,24 @@ class MessagesRepository @Inject constructor(
                     if (relates != null) {
                         val eid = content.relatesTo?.eventId
                         val reactions = messageReactions[eid]
+                        val pair = (message.eventId to message.sender)
                         if (reactions != null) {
                             reactions.update {
                                 val entry =
-                                    (it.reactions[relates.key] ?: emptySet()) + message.sender
-                                it.copy(
-                                    reactions = it.reactions + (relates.key!! to entry)
-                                )
+                                    (it[relates.key] ?: mapOf()) + pair
+                                it + (relates.key!! to entry)
                             }
                         } else {
                             messageReactions[eid!!] = MutableStateFlow(
-                                TimelineEventAggregation.Reaction(
-                                    reactions = mapOf(relates.key!! to setOf(message.sender))
-                                )
+                                mapOf(relates.key!! to mapOf(pair))
                             )
                         }
-
                     }
-                    acc
                 }
 
-                else -> {
-                    acc
-                }
+                else -> { }
             }
+            acc
         }.values.toList()
     }
 

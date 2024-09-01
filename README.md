@@ -1,7 +1,7 @@
 <div align="center">
   <img src="https://github.com/alexispurslane/bloc/blob/develop/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png?raw=true" width="128" height="128" style="display: block; margin: 0 auto"/>
   <h1>Bloc</h1>
-  <p>The Revolt Client for Revolutionaries</p>
+  <p>The Matrix client for Discord fugitives</p>
   <a href="https://github.com/alexispurslane/bloc/actions/workflows/android-ci.yml"><img src="https://github.com/alexispurslane/bloc/actions/workflows/android-ci.yml/badge.svg?branch=main"/></a>
 </div>
 
@@ -9,26 +9,43 @@
 
 <p align="center">
   
-<img src="https://github.com/alexispurslane/bloc/assets/1920151/7796940e-9007-449a-9a9d-63f301ea85e8" width="24%"/>
-<img src="https://github.com/alexispurslane/bloc/assets/1920151/bca4b906-51ce-4210-9f2e-c80e62910aa8" width="24%"/>
-<img src="https://github.com/alexispurslane/bloc/assets/1920151/dcda0fe0-dc8a-4ce9-985e-a966fa3c9b78" width="24%"/>
-<img src="https://github.com/alexispurslane/bloc/assets/1920151/56feaed3-2be2-40af-a28d-a56f9f310913" width="24%"/>
+<img src="./screenshot1.png" width="24%"/>
+<img src="./screenshot2.png" width="24%"/>
+<img src="./screenshot3.png" width="24%"/>
+<img src="./screenshot4.png" width="24%"/>
 
 </p>
 
-Bloc is a fully Android-native client for the [Revolt](https://revolt.chat) chat service that treats self-hosted instances as first-class citizens. It aims to be the client of choice for those who want the *finer* things in life, through focusing on a few key features.
+Bloc is an Android-native client for the [Matrix](https://matrix.org/) decentralized chat protocol, designed for Discord fugitives.
+
+## 🚧 Status: ALPHA QUALITY SOFTWARE 🚧
+
+**Disclaimer:** This project is in early alpha. I'm trying to polish and bugfix and optimize as I go, so that each feature I complete is largely in its final form, but the overall application will be lacking features and polish up to my high standards for a very long time. Please judge with that in mind!
+
+## Why do we need another Matrix client?
+
+The mobile Matrix client space suffers from a critical hole in the market: while each of the existing options has their benefits and drawbacks, none offers the fast, feature-rich, efficient to navigate, and server/space-oriented (IRC-lite) model of Discord.
+
+Element is well supported and covers the basic Matrix protocol well, but it is slow, inefficiently laid out (requiring more steps than necessary to switch servers/spaces and channels/rooms because the current room, the rooms in a space, and the spaces you are a member of are all completely separate screens, and it does not allow gestures to be used to navigate besides the unreliable OS-level "back" gesture), and doesn't support a lot of the [optional matrix protocols](https://github.com/Sorunome/matrix-doc/blob/soru/emotes/proposals/2545-emotes.md) that would make it appealing for those looking to switch from things like Discord.
+
+SchildiChat is a barebones fork of an old version of Element that seems to want to want to pretend Matrix never developed past the point the fork was made, refusing to support even basic protocol additions like spaces in an attempt to retain the simple, iMessage-chat-like M.O. of old Matrix. Moreover it suffers from the same slowness as regular Element.
+
+Then there's FluffyChat, Bloc's primary competitor. It is beautiful, uses Flutter to achieve better UI performance relative to Element, and it supports spaces at least. However it doesn't currently support image packs or other optional matrix protocol features that would make it attractive to Discord fugitives, and [doesn't seem interested in them as a core feature](https://github.com/krille-chan/fluffychat/issues/1243), rather forking that off to the SDK-level. Furthermore, for many UI features it seems to rely heavily on text commands, and the interface suffers from the same awkward, uncessarily inefficient layout as the other matrix clients.
+
+Bloc aims to fill this gap with an efficiently designed, gesture navigation oriented, fully GUI, native-performance, Discord-like client.
+
+It's standout features are:
 
 ## Features
 
-- 🚀 **Built with the most modern development tools, frameworks, and architectural best-practices.** Not bleeding-edge, but cutting-edge. Bloc is written in [Kotlin](https://kotlinlang.org/) and [Jetpack Compose](https://developer.android.com/jetpack/compose) with a constant and conscious focus on code quality, clarity, maintainability, and performance, because when something looks good on the inside, it works better on the outside too.
-- 🔍 **A clear, clean, consistent, and minimalist Material You-based design.** Free/Libre and Open Source Android applications don't have to be ugly, and Bloc is out to prove that.
-- ✨ **A gesture-first interface that makes you feel like you're in Minority Report.** Bloc's interface is built around gestures first and foremost, with every single one carefully tuned for momentum and repeatability, so that interacting with it feels like communicating with the app telepathically.
-- 🔐 **A privacy and independence conscious design.** Not only does Bloc treat self-hosted Revolt servers as first-class citizens, it also treats users of deGoogled Android (such as those on LineageOS, DivestOS, CalyxOS, or GrapheneOS) and other privacy-conscious Android users as first-class citizens as well, by using a persistant foreground service to recieve notifications instantaneously over WebSockets at a minor battery cost instead of receiving notifications through Google's Firebase Cloud Messaging Platform.[^1]
+- 🚀 **Built well.** Bloc is written using the latest tools for Android-native development, [Kotlin](https://kotlinlang.org/) and [Jetpack Compose](https://developer.android.com/jetpack/compose), allowing both for native performance and maximum utilization of your hardware thanks to Kotlin's powerful coroutine capabilities, but also maximum developer velocity and clean code. All of Bloc's code is written with a constant eye towards industry best practices and a conscious focus on code clarity, maintainability, and most especially performance.
+- 🔍 **A clear, clean, consistent, and minimalist Material You-based design, familiar to anyone who liked Discord's old UI.** Free/Libre and Open Source Android applications don't have to be ugly, and Bloc is out to prove that. Following in FluffyChat's footsteps, Bloc aims to be an absolutely *beautiful* Material You compliant Matrix client. Moreover, as all good Material You applications should, Bloc completely pulls its color theme, including light/dark mode, from your system — instantly have a personalized app, with no need to customize it!
+- ✨ **A gesture-first interface that makes you feel like you're in Minority Report.** Bloc's interface is built around gestures first and foremost, with every single one carefully tuned for momentum and repeatability, so that interacting with it feels like communicating with the app telepathically. Moreover, all spaces, user settings, rooms, and DMs are literally just a single swipe gesture (that does not dismiss your chat window, leaving it loaded there ready and waiting, and allowing you to peek at spaces/rooms without committing to leave a room) away at all times.
+- 🔐 **A privacy and independence conscious design.** Not only does Bloc treat self-hosted Revolt servers as first-class citizens, it also treats users of deGoogled Android (such as those on LineageOS, DivestOS, CalyxOS, or GrapheneOS) and other privacy-conscious Android users as first-class citizens as well, by using a persistent foreground service to receive notifications instantaneously over WebSockets at a minor battery cost instead of receiving notifications through Google's Firebase Cloud Messaging Platform.[^1]
 
 ## Installation
 
 Eventually Bloc will be released on F-Droid. For now, once there is a public Alpha available, you should be able to get it in the "releases" sidebar on GitHub.
-
 
 [<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png"
     alt="Get it on GitHub"
@@ -36,40 +53,34 @@ Eventually Bloc will be released on F-Droid. For now, once there is a public Alp
 
 ## Roadmap
 
-### Done (as of 1.0-alpha.1)
+## Roadmap to the first alpha
 
-- [X] Log in to any Revolt server, including two factor authentication and MFA recovery codes
-- [X] Get list of servers you're a member of, with full server icons, banners, and names
-- [X] List of channels (uncategorized and by-category) in each server including channel icons
-- [X] Visit channels and see old messages (including seamless scrollback in the timeline) and recieve new ones immediately
-- [X] Send messages back (and see own messages, of course)
-- [X] Render all Markdown, and render user mentions as clickable links that open their profile
-- [X] Viewable profiles (including own) including avatar, dispaly name, username, discriminator, user banner, status, and bio
-- [X] Remember last server/channel, and the last used channel for each server and automatically open them when the app/server is opened
-- [X] Respect user server-specific names, roles, and icons, as well as masquerades
-- [X] Display image attachments (collapsable, automatically collapsed for >2 attachments)
-- [X] Functional push notifications that work even when the app is fully closed, showing all relevant information and grouped by channel in your notifications tray. (This is something RVMob doesn't have yet!)
-- [X] Fully smooth and jank-free back history scrolling and new message scrolling (also something RVMob doesn't have!)
-- [X] Make you able to tap on someone's PFP to see their profile in a slide up card
+- [X] Rooms
+- [X] Sending messages
+- [X] Rich text (viewing and sending)
+- [X] Spaces
+- [X] Custom image pack (custom emoji and stickers) (viewing)
+- [X] Existing reaction support (viewing and adding to)
+- [X] Reply, delete, and edit (viewing)
+- [X] File and image attachment (viewing/downloading)
+- [X] All attachment types (sending)
+- [X] Attachment collapsing
+- [X] Basic preferences (font size, attachment behavior, AMOLED theme)
+- [X] Pulling color theme and dark/light mode from system
+- [ ] Reply, delete, and edit (sending)
+- [ ] Custom image pack (sending)
+- [ ] Reaction support (initiating)
+- [ ] Notification support using foreground service
 
-### To-Do
+## Roadmap to 1.0
 
-- [ ] Make the "jump to bottom" banner
-- [ ] Make the notification listener service work before the first time you open the app (it works after that even if you close the app but if you reboot it won't work again till you open it)
-- [ ] Implement displaying custom emoji
-- [ ] Direct messages
-- [ ] Implement seeing who is on a server
-- [ ] Allow sending custom emoji
-- [ ] Display and allow replies
-- [ ] Allow users to @mention others
-- [ ] Display/allow emoji message reactions
-- [ ] "User is typing" alerts
-- [ ] Read receipts
-- [ ] Compact (IRC) mode
-- [ ] Add ability to change font size and theme
-- [ ] Add ability to add attachments to messages
-- [ ] Act on server/channel/user update events (for instance, when user statuses change)
-- [ ] Allow user blocking/friending/unfriending/dealing with requests and message reporting
+- [ ] Threads
+- [ ] Encrypted messages (sending and viewing)
+- [ ] Encryption events (viewing)
+- [ ] Blocking and reporting
+- [ ] Joining new spaces/rooms by URL
+- [ ] Space lobbies for discovering rooms
+- [ ] Better support for DMs
 
 ## Acknowledgements
 

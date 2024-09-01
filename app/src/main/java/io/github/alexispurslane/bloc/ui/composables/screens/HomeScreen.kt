@@ -96,6 +96,9 @@ fun HomeScreen(
                     // ServerChannelViewModel by SavedStateHandle!
                     ChannelViewScreen(navController)
                 }
+                composable("channel/") {
+                    ChannelViewScreen(navController)
+                }
             }
         }
     }

@@ -17,9 +17,12 @@ import io.github.alexispurslane.bloc.data.MessagesRepository
 import io.github.alexispurslane.bloc.data.RoomsRepository
 import io.github.alexispurslane.bloc.data.UserSession
 import io.github.alexispurslane.bloc.data.flattenFlow
+import io.github.alexispurslane.bloc.data.models.User
 import io.ktor.http.ContentType
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +35,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.folivo.trixnity.client.MatrixClient
 import net.folivo.trixnity.client.room
+import net.folivo.trixnity.client.room.getTimelineEventReactionAggregation
 import net.folivo.trixnity.client.room.message.audio
 import net.folivo.trixnity.client.room.message.emote
 import net.folivo.trixnity.client.room.message.file
@@ -44,9 +48,12 @@ import net.folivo.trixnity.client.store.RoomOutboxMessage
 import net.folivo.trixnity.client.store.TimelineEvent
 import net.folivo.trixnity.core.model.EventId
 import net.folivo.trixnity.core.model.RoomId
+import net.folivo.trixnity.core.model.UserId
+import net.folivo.trixnity.core.model.events.m.RelationType
 import org.intellij.markdown.flavours.commonmark.CommonMarkFlavourDescriptor
 import org.intellij.markdown.html.HtmlGenerator
 import org.intellij.markdown.parser.MarkdownParser
+import org.jetbrains.annotations.Async
 import javax.inject.Inject
 
 data class ServerChannelUiState(
@@ -83,9 +90,6 @@ class ChannelViewModel @Inject constructor(
     val uiState: StateFlow<ServerChannelUiState> = _uiState.asStateFlow()
 
     val parser = MarkdownParser(CommonMarkFlavourDescriptor())
-
-    val users
-        get() = accountsRepository.users
 
     val reactions
         get() = messagesRepository.messageReactions
@@ -145,12 +149,28 @@ class ChannelViewModel @Inject constructor(
         }
     }
 
+    fun fetchuserInformation(uid: UserId): Deferred<User?> {
+        return viewModelScope.async {
+            accountsRepository.fetchUserInformation(uid).fold(
+                onSuccess = { it },
+                onFailure = { e ->
+                    _uiState.update {
+                        it.copy(
+                            error = e.message
+                        )
+                    }
+                    null
+                }
+            )
+        }
+    }
 
     private suspend fun initializeChannelData(
         channelId: String,
         prevState: ServerChannelUiState
     ): ServerChannelUiState {
         val channelInfo = roomsRepository.roomDirectory.value[RoomId(channelId)]
+            ?: accountsRepository.matrixClient?.room?.getById(RoomId(channelId))?.first()
             ?: return prevState.copy(error = "Uh oh! Cannot fetch channel info")
 
         Log.d("Channel View", "got channel info: $channelInfo")
@@ -161,8 +181,6 @@ class ChannelViewModel @Inject constructor(
         ) ?: return prevState.copy(error = "Uh oh! Cannot fetch messages for this channel")
 
         Log.d("Channel View", "got channel messages: ${messages.first().size}")
-
-        accountsRepository.prefetchUsersForChannel(RoomId(channelId))
 
         return prevState.copy(
             channelId = channelId,
@@ -175,10 +193,14 @@ class ChannelViewModel @Inject constructor(
         _uiState.value.draftMessage.update { new }
     }
 
-    fun react(eventId: EventId, reactionKey: String) {
+    fun react(eventId: EventId, reactionKey: String, alreadyReacted: EventId?) {
         viewModelScope.launch(Dispatchers.IO) {
-            accountsRepository.matrixClient?.room?.sendMessage(RoomId(uiState.value.channelId!!)) {
-                react(eventId, reactionKey)
+            if (alreadyReacted == null) {
+                accountsRepository.matrixClient?.room?.sendMessage(RoomId(uiState.value.channelId!!)) {
+                    react(eventId, reactionKey)
+                }
+            } else {
+                accountsRepository.matrixClient?.api?.room?.redactEvent(RoomId(uiState.value.channelId!!), alreadyReacted)
             }
         }
     }

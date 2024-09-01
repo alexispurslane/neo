@@ -24,7 +24,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Button
 import androidx.compose.material3.DrawerDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -184,7 +186,7 @@ fun ChannelViewScreen(
 
 @Composable
 fun CompletionDrawerElement(index: Int, onClick: () -> Unit, content: @Composable RowScope.() -> Unit) {
-    TextButton(
+    FilledTonalButton(
         modifier = Modifier
             .padding(
                 start = 5.dp,
@@ -193,9 +195,7 @@ fun CompletionDrawerElement(index: Int, onClick: () -> Unit, content: @Composabl
                 top = if (index == 0) 15.dp else 0.dp
             )
             .height(38.dp)
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large)
-            .background(Color.Black),
+            .fillMaxWidth(),
         onClick = onClick
     ) {
         Row(

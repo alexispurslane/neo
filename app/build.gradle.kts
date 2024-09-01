@@ -7,6 +7,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("io.realm.kotlin")
 }
 
 android {
@@ -125,6 +126,9 @@ dependencies {
     ksp("com.google.dagger:hilt-compiler:2.48")  // Hilt compiler    ksp("com.google.dagger:hilt-android-compiler:2.44")
     implementation("com.google.dagger:hilt-android:2.49")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+
+    implementation("io.realm.kotlin:library-base:2.1.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
 
     implementation("androidx.navigation:navigation-compose:2.7.7")
 

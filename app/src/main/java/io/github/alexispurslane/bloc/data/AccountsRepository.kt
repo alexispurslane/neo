@@ -42,6 +42,7 @@ import net.folivo.trixnity.core.serialization.events.EventContentSerializerMappi
 import net.folivo.trixnity.core.serialization.events.EventContentSerializerMappings
 import net.folivo.trixnity.core.serialization.events.createEventContentSerializerMappings
 import net.folivo.trixnity.core.serialization.events.ephemeralOf
+import net.folivo.trixnity.core.serialization.events.stateOf
 import okio.Path.Companion.toPath
 import org.koin.dsl.module
 import java.io.IOException
@@ -87,13 +88,13 @@ class AccountsRepository @Inject constructor(
     val matrixClient: MatrixClient?
         get() = matrixClientFlow.value
 
-    val users: SnapshotStateMap<UserId, User> = mutableStateMapOf()
+    val users: SnapshotStateMap<UserId, User?> = mutableStateMapOf()
 
     private var _userSessionFlow: MutableStateFlow<UserSession?> = MutableStateFlow(null)
     val userSessionFlow: StateFlow<UserSession?> = _userSessionFlow.asStateFlow()
 
     val customMappings = createEventContentSerializerMappings {
-        ephemeralOf<ImagePackEventContent>("m.image_pack")
+        stateOf<ImagePackEventContent>("m.image_pack")
     }
     val customMappingsModule = module {
         single<EventContentSerializerMappings> {
@@ -225,24 +226,24 @@ class AccountsRepository @Inject constructor(
     }
 
     suspend fun fetchUserInformation(uid: UserId): Result<User> {
-        val profile = matrixClient?.api?.user?.getProfile(uid)?.getOrElse { return@fetchUserInformation Result.failure(it) }
-        val presence = matrixClient?.api?.user?.getPresence(uid)?.getOrElse { return@fetchUserInformation Result.failure(it) }
-        if (profile != null) {
-            users[uid] = User(
-                userId = uid,
-                avatarUrl = profile.avatarUrl,
-                displayName = profile.displayName,
-                presence = presence?.presence ?: Presence.OFFLINE
-            )
-            return Result.success(users[uid]!!)
-        } else {
-            return Result.failure(Exception("Could not fetch user profile information for user ID $uid"))
+        val res = users.getOrPut(uid) {
+            val profile = matrixClient?.api?.user?.getProfile(uid)?.getOrElse { return@fetchUserInformation Result.failure(it) }
+            val presence = matrixClient?.api?.user?.getPresence(uid)?.getOrNull()
+            if (profile != null) {
+                User(
+                    userId = uid,
+                    avatarUrl = profile.avatarUrl,
+                    displayName = profile.displayName,
+                    presence = presence?.presence ?: Presence.OFFLINE
+                )
+            } else {
+                null
+            }
         }
-    }
-
-    suspend fun prefetchUsersForChannel(roomId: RoomId) {
-        matrixClient?.user?.getAll(roomId)?.first()?.forEach {
-            fetchUserInformation(it.key)
+        return if (res != null) {
+            Result.success(res)
+        } else {
+            Result.failure(Exception("Unable to find user"))
         }
     }
 }

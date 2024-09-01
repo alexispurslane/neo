@@ -2,8 +2,11 @@
 
 package io.github.alexispurslane.bloc.data
 
+import android.media.Image
+import android.util.Log
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.snapshots.SnapshotStateMap
+import io.github.alexispurslane.bloc.data.models.ImagePackEventContent
 import io.github.alexispurslane.bloc.data.models.PackObject
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
@@ -23,7 +26,14 @@ class ImagePackRepository @Inject constructor(
         GlobalScope.launch(Dispatchers.IO) {
             roomsRepository.rooms.collectLatest { rooms ->
                 rooms.keys.forEach { roomId ->
-                    //accountsRepository.matrixClient!!.room.getAllState(roomId, eventContentClass = UnknownEventContent.class)
+                    launch {
+                        accountsRepository.matrixClient!!.room.getAllState(
+                            roomId = roomId,
+                            eventContentClass = ImagePackEventContent::class
+                        ).collect {
+                            Log.d("Image Pack Repo", it.toString())
+                        }
+                    }
                 }
             }
         }

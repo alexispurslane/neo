@@ -26,8 +26,10 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -41,11 +43,17 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -54,6 +62,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +72,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.ParagraphStyle
@@ -90,6 +100,7 @@ import io.github.alexispurslane.bloc.ui.theme.EngineeringOrange
 import io.github.alexispurslane.bloc.viewmodels.ServerChannelUiState
 import io.github.alexispurslane.bloc.viewmodels.ChannelViewModel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -129,6 +140,7 @@ private fun LazyListState.containItem(index:Int): Boolean {
     }.value
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessagesView(
     modifier: Modifier = Modifier,
@@ -160,6 +172,11 @@ fun MessagesView(
                 if (!channelViewModel.messageListState.isScrollInProgress && channelViewModel.messageListState.firstVisibleItemIndex <= 5)
                     channelViewModel.goToBottom()
             }
+
+            var bottomSheetCurrentMessage by remember { mutableStateOf<EventId?>(null) }
+            val sheetState = rememberModalBottomSheetState(
+                skipPartiallyExpanded = false
+            )
 
             val outbox = uiState.outbox?.collectAsState()
             LazyColumn(
@@ -216,13 +233,15 @@ fun MessagesView(
                         modifier = Modifier
                             .padding(vertical = 5.dp),
                         message = message,
-                        member = channelViewModel.users[message.sender],
                         prevMessage = messages.getOrNull(
                             index + 1
                         ),
                         onProfileClick = onProfileClick,
                         lazyListState = channelViewModel.messageListState,
-                        index = index
+                        index = index,
+                        onMessageTapHold = {
+                            bottomSheetCurrentMessage = it
+                        }
                     )
                 }
                 if (uiState.atBeginning) {
@@ -251,26 +270,36 @@ fun MessagesView(
                 }
             }
 
-            val visible by remember { derivedStateOf { uiState.newMessages || channelViewModel.messageListState.firstVisibleItemIndex > 50 } }
-            AnimatedVisibility(visible = visible) {
-                val coroutineScope = rememberCoroutineScope()
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .requiredHeight(30.dp)
-                        .background(MaterialTheme.colorScheme.primary)
-                        .clickable {
-                            coroutineScope.launch {
-                                channelViewModel.goToBottom()
-                            }
-                        },
-                    contentAlignment = Alignment.Center
+            if (bottomSheetCurrentMessage != null) {
+                ModalBottomSheet(
+                    modifier = Modifier.fillMaxHeight(),
+                    sheetState = sheetState,
+                    onDismissRequest = { bottomSheetCurrentMessage = null }
                 ) {
-                    Text(
-                        "New messages available",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 12.sp
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxSize()
+                            .padding(horizontal = 5.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Bottom
+                    ) {
+                        FilledTonalButton(
+                            onClick = { }
+                        ) {
+                            Text("Delete")
+                        }
+
+                        FilledTonalButton(
+                            onClick = { }
+                        ) {
+                            Text("Edit")
+                        }
+
+                        FilledTonalButton(
+                            onClick = { }
+                        ) {
+                            Text("Reply")
+                        }
+                    }
                 }
             }
         }
@@ -339,57 +368,73 @@ fun launchActionWithAttachment(
 fun Message(
     modifier: Modifier = Modifier,
     message: TimelineEvent,
-    member: User?,
     prevMessage: TimelineEvent? = null,
-    onProfileClick: (UserId) -> Unit = { },
-    channelViewModel: ChannelViewModel = hiltViewModel(),
     lazyListState: LazyListState,
-    index: Int
+    index: Int,
+    onProfileClick: (UserId) -> Unit = { },
+    onMessageTapHold: (EventId) -> Unit = { },
+    channelViewModel: ChannelViewModel = hiltViewModel(),
 ) {
     val channelUiState by channelViewModel.uiState.collectAsState()
+    val focusManager = LocalFocusManager.current
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 15.dp),
+            .padding(horizontal = 15.dp)
+            .combinedClickable(
+                onClick = {
+                    focusManager.clearFocus(true)
+                },
+                onLongClick = {
+                    onMessageTapHold(message.eventId)
+                }
+            ),
         horizontalArrangement = Arrangement.spacedBy(
             10.dp,
             Alignment.Start
         ),
         verticalAlignment = Alignment.Top
     ) {
-        if (member != null && message.relatesTo !is RelatesTo.Replace) {
-            val avatarSize = (channelUiState.fontSize.value * 2 + 8)
-            if (prevMessage == null || prevMessage.sender != message.sender) {
-                UserAvatar(
-                    size = avatarSize.dp,
-                    user = member,
-                    client = channelUiState.client,
-                    onClick = { userId ->
-                        onProfileClick(userId)
-                    }
-                )
-            } else {
-                Spacer(modifier = Modifier.width(avatarSize.dp))
+        val scope = rememberCoroutineScope()
+        var memberState by remember { mutableStateOf<User?>(null) }
+        val visible = lazyListState.containItem(index)
+        LaunchedEffect(visible) {
+            scope.launch {
+                val member = channelViewModel.fetchuserInformation(message.sender)
+                memberState = member.await()
             }
-            Column {
-                if (prevMessage == null || prevMessage.sender != message.sender) {
-                    Text(
-                        member.displayName ?: member.userId.localpart,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Black,
-                        textAlign = TextAlign.Start,
-                    )
+        }
+        val avatarSize = (channelUiState.fontSize.value * 2 + 8)
+        if (memberState != null && (prevMessage == null || prevMessage.sender != message.sender)) {
+            UserAvatar(
+                size = avatarSize.dp,
+                user = memberState!!,
+                client = channelUiState.client,
+                onClick = { userId ->
+                    onProfileClick(userId)
                 }
-                MessageContent(
-                    content = message.content,
-                    eventId = message.eventId,
-                    member = member,
-                    channelUiState = channelUiState,
-                    lazyListState = lazyListState,
-                    index = index
+            )
+        } else {
+            Spacer(modifier = Modifier.width(avatarSize.dp))
+        }
+        Column {
+            if (prevMessage == null || prevMessage.sender != message.sender) {
+                Text(
+                    memberState?.displayName ?: memberState?.userId?.localpart ?: message.sender.localpart,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Start,
                 )
             }
+            MessageContent(
+                content = message.content,
+                eventId = message.eventId,
+                member = memberState,
+                channelUiState = channelUiState,
+                lazyListState = lazyListState,
+                index = index
+            )
         }
     }
 }
@@ -443,7 +488,8 @@ fun MessageContent(
                         else -> ""
                     }
                     MessageBody(
-                        prefix + (content.formattedBody ?: content.body),
+                        content = prefix + content.body,
+                        formattedContent = content.formattedBody?.let { prefix + it },
                         modifier = Modifier
                             .combinedClickable(
                                 onLongClick = { },
@@ -482,21 +528,20 @@ fun MessageContent(
                             Row(
                                 modifier = Modifier.padding(top = 5.dp)
                             ) {
-                                reactionsState.reactions.forEach { (emoji, users) ->
-                                    Row(
-                                        modifier = Modifier
-                                            .padding(end = 5.dp)
-                                            .clip(MaterialTheme.shapes.small)
-                                            .background(
-                                                color = if (users.contains(UserId(channelUiState.currentUserInfo!!.fullUserId())))
-                                                    EngineeringOrange
-                                                else
-                                                    Color.DarkGray
-                                            )
-                                            .padding(start = 4.dp, end = 4.dp)
-                                            .clickable {
-                                                channelViewModel.react(eventId!!, emoji)
-                                            },
+                                reactionsState.forEach { (emoji, eventUsers) ->
+                                    val userReactEvent = eventUsers.entries.find {
+                                        it.value == UserId(channelUiState.currentUserInfo!!.fullUserId())
+                                    }
+
+                                    FilledTonalButton(
+                                        contentPadding = PaddingValues(3.dp),
+                                        colors = if (userReactEvent != null)
+                                            ButtonDefaults.buttonColors()
+                                        else
+                                            ButtonDefaults.filledTonalButtonColors(),
+                                        onClick = {
+                                            channelViewModel.react(eventId!!, emoji, userReactEvent?.key)
+                                        },
                                     ) {
                                         if (emoji.startsWith("mxc")) {
                                             val resources = LocalContext.current.resources
@@ -516,7 +561,7 @@ fun MessageContent(
 
                                         Text(
                                             modifier = Modifier.padding(start = 5.dp),
-                                            text = users.size.toString(),
+                                            text = eventUsers.size.toString(),
                                             fontSize = 13.sp,
                                             fontFamily = FontFamily.Monospace
                                         )
@@ -730,6 +775,7 @@ class AnnotationSpan(val key: String, val value: String)
 @Composable
 fun MessageBody(
     content: String,
+    formattedContent: String? = null,
     modifier: Modifier = Modifier,
     textColor: Color = MaterialTheme.colorScheme.onBackground,
     fontSize: TextUnit = 18.sp,
@@ -745,12 +791,12 @@ fun MessageBody(
     val visible = lazyListState?.containItem(index)
     val linkColor = MaterialTheme.colorScheme.secondary
     val size = (resources.displayMetrics.density * fontSize.value).roundToLong()
-    LaunchedEffect(content, visible) {
-        if (visible == true) {
+    LaunchedEffect(formattedContent, visible) {
+        if (visible == true && formattedContent != null) {
             launch(Dispatchers.IO) {
                 // NOTE: keep this up to date with the real `ContentHandlerReplacementTag` variable
                 val cleanedHtmlString =
-                    content
+                    formattedContent
                         .replace(Regex("</?body>"), "") // remove default wrapping body tag
                         .replace(Regex("(^<p>|</p>$)"), "") // remove default wrapping paragraph
                         .let {
