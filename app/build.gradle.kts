@@ -11,11 +11,11 @@ plugins {
 }
 
 android {
-    namespace = "io.github.alexispurslane.bloc"
+    namespace = "io.github.alexispurslane.neo"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "io.github.alexispurslane.bloc"
+        applicationId = "io.github.alexispurslane.neo"
         minSdk = 31
         targetSdk = 35
         versionCode = 1
@@ -91,13 +91,13 @@ android {
 }
 
 task<Exec>("stopApp") {
-    commandLine("adb", "shell", "am", "force-stop", "io.github.alexispurslane.bloc")
+    commandLine("adb", "shell", "am", "force-stop", "io.github.alexispurslane.neo")
 }
 
 task<Exec>("appStart") {
     dependsOn("installDebug")
     dependsOn("stopApp")
-    commandLine("adb", "shell", "am", "start", "-n", "io.github.alexispurslane.bloc/.MainActivity")
+    commandLine("adb", "shell", "am", "start", "-n", "io.github.alexispurslane.neo/.MainActivity")
 }
 
 dependencies {
