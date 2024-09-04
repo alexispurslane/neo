@@ -1,5 +1,3 @@
-import java.net.URI
-
 pluginManagement {
     repositories {
         google()
@@ -12,10 +10,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = URI("https://jitpack.io") }
     }
 }
 
-rootProject.name = "Bloc"
+rootProject.name = "Neo"
 include(":app")
 include(":benchmark")

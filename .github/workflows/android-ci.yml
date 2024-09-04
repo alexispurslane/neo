@@ -24,9 +24,4 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
-        env:
-          SIGNING_KEY_ALIAS: '${{ secrets.SIGNING_KEY_ALIAS }}'
-          SIGNING_STORE_FILE: '${{ secrets.SIGNING_STORE_FILE }}'
-          SIGNING_KEY_PASSWORD: '${{ secrets.SIGNING_KEY_PASSWORD }}'
-          SIGNING_STORE_PASSWORD: '${{ secrets.SIGNING_STORE_PASSWORD }}'
-        run: ./gradlew buildDebug
+        run: ./gradlew build
