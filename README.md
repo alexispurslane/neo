@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/alexispurslane/bloc/blob/develop/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png?raw=true" width="128" height="128" style="display: block; margin: 0 auto"/>
+  <img src="https://github.com/alexispurslane/bloc/blob/develop/app/src/main/res/mipmap-xxhdpi/ic_launcher.webp?raw=true" width="128" height="128" style="display: block; margin: 0 auto"/>
   <h1>Neo</h1>
   <p>"He's beginning to believe"</p>
   <a href="https://github.com/alexispurslane/bloc/actions/workflows/android-ci.yml"><img src="https://github.com/alexispurslane/bloc/actions/workflows/android-ci.yml/badge.svg?branch=main"/></a>
