@@ -13,6 +13,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Bloc"
+rootProject.name = "Neo"
 include(":app")
 include(":benchmark")

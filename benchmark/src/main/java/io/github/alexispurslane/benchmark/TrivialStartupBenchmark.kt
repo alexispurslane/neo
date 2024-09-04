@@ -27,7 +27,7 @@ class TrivialStartupBenchmark {
 
     @Test
     fun startup() = benchmarkRule.measureRepeated(
-        packageName = "io.github.alexispurslane.bloc",
+        packageName = "io.github.alexispurslane.neo",
         metrics = listOf(StartupTimingMetric()),
         iterations = 5,
         startupMode = StartupMode.COLD,

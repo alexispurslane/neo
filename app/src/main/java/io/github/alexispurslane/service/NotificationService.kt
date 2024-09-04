@@ -1,61 +1,26 @@
 package io.github.alexispurslane.service
 
-import android.Manifest
 import android.app.AlarmManager
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ApplicationInfo
-import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import android.widget.Toast
-import androidx.compose.ui.graphics.toArgb
-import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.app.Person
-import androidx.core.graphics.drawable.IconCompat
-import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory
-import androidx.core.graphics.drawable.toBitmapOrNull
-import androidx.core.net.toUri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.emptyPreferences
 import dagger.hilt.android.AndroidEntryPoint
-import io.github.alexispurslane.bloc.MainActivity
-import io.github.alexispurslane.bloc.R
-import io.github.alexispurslane.bloc.SERVER_CHANNEL_ID
-import io.github.alexispurslane.bloc.SERVICE_CHANNEL_ID
-import io.github.alexispurslane.bloc.data.PreferenceKeys
-import io.github.alexispurslane.bloc.data.network.RevoltApiModule
-import io.github.alexispurslane.bloc.data.network.RevoltWebSocketModule
-import io.github.alexispurslane.bloc.data.network.models.AutumnFile
-import io.github.alexispurslane.bloc.data.network.models.RevoltChannel
-import io.github.alexispurslane.bloc.data.network.models.RevoltMessage
-import io.github.alexispurslane.bloc.data.network.models.RevoltServer
-import io.github.alexispurslane.bloc.data.network.models.RevoltWebSocketResponse
-import io.github.alexispurslane.bloc.ui.theme.EngineeringOrange
+import io.github.alexispurslane.neo.MainActivity
+import io.github.alexispurslane.neo.R
+import io.github.alexispurslane.neo.SERVICE_CHANNEL_ID
 import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.launch
-import java.io.IOException
-import java.net.URL
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
-import javax.net.ssl.HttpsURLConnection
 
 enum class Actions {
     START,
@@ -172,6 +137,7 @@ class NotificationService : Service() {
             }
 
         val context = this
+        /*
         listenJob = GlobalScope.launch(Dispatchers.IO) {
             dataStore.data.catch {
                 if (it is IOException)
@@ -230,6 +196,7 @@ class NotificationService : Service() {
                 }
             }
         }
+         */
     }
 
     private fun stopService() {
@@ -260,6 +227,7 @@ class NotificationService : Service() {
         setServiceState(this, ServiceState.STOPPED)
     }
 
+    /*
     private val people: MutableMap<String, Person> = mutableMapOf()
     private suspend fun getChannelName(
         sessionToken: String,
@@ -305,7 +273,7 @@ class NotificationService : Service() {
     ): Notification = coroutineScope {
         val pendingIntent = Intent(
             Intent.ACTION_VIEW,
-            "bloc://channel/${message.channelId}".toUri(),
+            "neo://channel/${message.channelId}".toUri(),
             context,
             MainActivity::class.java
         ).let {
@@ -462,6 +430,7 @@ class NotificationService : Service() {
             null
         }
     }
+     */
 
     private fun createServiceNotification(): Notification {
         val pendingIntent = Intent(this, MainActivity::class.java).let {

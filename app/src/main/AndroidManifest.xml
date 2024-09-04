@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
 
     <application
         android:allowBackup="true"
@@ -16,15 +17,25 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Bloc"
+        android:theme="@style/Theme.Neo"
         android:name=".MainApplication"
-        tools:targetApi="31">
+        tools:targetApi="35">
+
+        <provider
+            android:name="io.github.alexispurslane.neo.ui.composables.misc.MatrixImageFileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.Bloc">
+            android:theme="@style/Theme.Neo">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -38,7 +49,7 @@
                 <category android:name="android.intent.category.APP_MESSAGING" />
 
                 <data
-                    android:scheme="bloc"
+                    android:scheme="neo"
                     android:host="channel" />
             </intent-filter>
 
@@ -49,7 +60,7 @@
                 <category android:name="android.intent.category.APP_MESSAGING" />
 
                 <data
-                    android:scheme="bloc"
+                    android:scheme="neo"
                     android:host="profile" />
             </intent-filter>
         </activity>
@@ -66,6 +77,7 @@
             android:name="io.github.alexispurslane.service.NotificationService"
             android:enabled="true"
             android:stopWithTask="false"
+            android:foregroundServiceType="remoteMessaging"
             android:exported="false" />
 
         <!--suppress AndroidElementNotAllowed -->
